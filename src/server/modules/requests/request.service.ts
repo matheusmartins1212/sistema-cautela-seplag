@@ -32,6 +32,7 @@ import {
   type ListMyRequestsQuery,
   type RejectRequestInput,
 } from "@/server/modules/requests/request.schemas";
+import { toAppWallClock } from "@/shared/time";
 
 const MAX_PUBLIC_CODE_RETRIES = 5;
 
@@ -86,7 +87,7 @@ export async function createRequest(
     try {
       created = await prisma.vehicleRequest.create({
         data: {
-          publicCode: generateRequestCode(new Date()),
+          publicCode: generateRequestCode(toAppWallClock(new Date())),
           userId: actor.user.id,
           withdrawalDate,
           returnDate,
@@ -385,7 +386,7 @@ export async function approveRequest(
       result = await prisma.$transaction(async (tx) => {
         const newCaution = await tx.caution.create({
           data: {
-            publicCode: generateCautionCode(new Date()),
+            publicCode: generateCautionCode(toAppWallClock(new Date())),
             requestId: id,
             userId: req!.userId,
             vehicleId: vehicle.id,

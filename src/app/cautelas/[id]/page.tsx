@@ -6,6 +6,7 @@ import { toPublicCaution } from "@/server/modules/cautions/caution.dto";
 import { Errors } from "@/server/lib/errors";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { ChecklistActions } from "@/components/checklists/checklist-actions";
+import { formatInstantBr } from "@/shared/time";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -78,10 +79,10 @@ export default async function CautelaDetalhePage({ params }: Props) {
           <Row label="Retirada prevista" value={formatDateTimeBr(c.plannedWithdrawalAt)} />
           <Row label="Devolução prevista" value={formatDateTimeBr(c.plannedReturnAt)} />
           {c.actualWithdrawalAt && (
-            <Row label="Retirada efetiva" value={formatDateTimeBr(c.actualWithdrawalAt)} />
+            <Row label="Retirada efetiva" value={formatInstantBr(c.actualWithdrawalAt)} />
           )}
           {c.actualReturnAt && (
-            <Row label="Devolução efetiva" value={formatDateTimeBr(c.actualReturnAt)} />
+            <Row label="Devolução efetiva" value={formatInstantBr(c.actualReturnAt)} />
           )}
         </dl>
       </section>

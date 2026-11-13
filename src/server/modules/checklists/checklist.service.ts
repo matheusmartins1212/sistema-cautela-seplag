@@ -25,6 +25,7 @@ import type {
   SaveChecklistDraftInput,
   SubmitChecklistInput,
 } from "./checklist.schemas";
+import { toAppWallClock } from "@/shared/time";
 
 const CHECKLIST_TYPE_LABEL: Record<ChecklistType, string> = {
   RETIRADA: "retirada",
@@ -522,7 +523,8 @@ export async function reviewChecklist(
     ) {
       // Devolução fora do prazo ou com avaria encerra "com observação".
       const returnedLate =
-        !!caution.actualReturnAt && caution.actualReturnAt > caution.plannedReturnAt;
+        !!caution.actualReturnAt &&
+        toAppWallClock(caution.actualReturnAt) > caution.plannedReturnAt;
       const finalStatus =
         returnedLate || current!.hasDamage
           ? CautionStatus.FINALIZADA_COM_OBSERVACAO

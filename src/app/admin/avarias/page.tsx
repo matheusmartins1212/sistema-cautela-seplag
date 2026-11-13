@@ -5,6 +5,7 @@ import { listDamagesQuerySchema } from "@/server/modules/damages/damage.schemas"
 import { toPublicDamage } from "@/server/modules/damages/damage.dto";
 import { DamageStatusBadge } from "@/components/damages/damage-status-badge";
 import { DAMAGE_STATUS_LABEL, SEVERITY_LABEL } from "@/components/damages/labels";
+import { formatInstantBr } from "@/shared/time";
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -117,7 +118,7 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
                     <DamageStatusBadge status={dmg.status} />
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">
-                    {new Date(dmg.createdAt).toLocaleString("pt-BR")}
+                    {formatInstantBr(dmg.createdAt)}
                   </td>
                 </tr>
               );

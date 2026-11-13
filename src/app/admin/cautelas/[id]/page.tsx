@@ -14,6 +14,7 @@ import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { CancelCautionButton } from "@/components/cautions/cancel-caution-button";
 import { ChecklistStatusBadge } from "@/components/checklists/checklist-status-badge";
 import { CHECKLIST_TYPE_LABEL } from "@/components/checklists/labels";
+import { formatInstantBr } from "@/shared/time";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -128,10 +129,10 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
           <Row label="Retirada prevista" value={formatDateTimeBr(c.plannedWithdrawalAt)} />
           <Row label="Devolução prevista" value={formatDateTimeBr(c.plannedReturnAt)} />
           {c.actualWithdrawalAt && (
-            <Row label="Retirada efetiva" value={formatDateTimeBr(c.actualWithdrawalAt)} />
+            <Row label="Retirada efetiva" value={formatInstantBr(c.actualWithdrawalAt)} />
           )}
           {c.actualReturnAt && (
-            <Row label="Devolução efetiva" value={formatDateTimeBr(c.actualReturnAt)} />
+            <Row label="Devolução efetiva" value={formatInstantBr(c.actualReturnAt)} />
           )}
         </dl>
       </section>

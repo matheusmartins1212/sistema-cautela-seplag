@@ -8,6 +8,7 @@ import { VehicleStatusBadge } from "@/components/vehicles/vehicle-status-badge";
 import { VehicleForm } from "@/components/vehicles/vehicle-form";
 import { VehicleStatusActions } from "@/components/vehicles/vehicle-status-actions";
 import { VEHICLE_CATEGORY_LABEL, VEHICLE_USAGE_LABEL } from "@/components/vehicles/labels";
+import { formatInstantBr } from "@/shared/time";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -88,9 +89,7 @@ export default async function VeiculoDetalhePage({ params }: Props) {
                   <span className="font-mono text-xs font-medium text-institutional-800">
                     {entry.action}
                   </span>
-                  <time className="text-xs text-gray-500">
-                    {new Date(entry.createdAt).toLocaleString("pt-BR")}
-                  </time>
+                  <time className="text-xs text-gray-500">{formatInstantBr(entry.createdAt)}</time>
                 </div>
                 {entry.metadata && typeof entry.metadata === "object" && (
                   <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-gray-700">

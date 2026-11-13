@@ -69,7 +69,9 @@ describe("markOverdueCautions", () => {
     await markOverdueCautions(new Date("2026-06-10T00:00:00Z"));
     const where = vi.mocked(prisma.caution.findMany).mock.calls[0]?.[0]?.where;
     expect(where?.status).toEqual({ in: ["EM_USO", "AGUARDANDO_DEVOLUCAO"] });
-    expect(where?.plannedReturnAt).toEqual({ lt: new Date("2026-06-10T00:00:00Z") });
+    // 00:00 UTC = 20:00 do dia anterior em Cuiabá (UTC-4): prazos previstos são
+    // "hora de parede", então a comparação usa essa mesma base.
+    expect(where?.plannedReturnAt).toEqual({ lt: new Date("2026-06-09T20:00:00Z") });
   });
 });
 
@@ -103,7 +105,7 @@ describe("sendWithdrawalReminders / sendReturnReminders", () => {
     expect(where?.returnReminderSentAt).toBeNull();
     // janela de 24h à frente
     expect(where?.plannedReturnAt).toEqual({
-      lte: new Date("2026-06-11T00:00:00Z"),
+      lte: new Date("2026-06-10T20:00:00Z"),
     });
   });
 });

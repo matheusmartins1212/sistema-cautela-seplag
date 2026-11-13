@@ -10,6 +10,7 @@ import {
   buildReturnReminder,
   buildWithdrawalReminder,
 } from "@/server/modules/email/templates/caution-templates";
+import { toAppWallClock } from "@/shared/time";
 
 /**
  * Jobs agendados (acionados pela rota /api/cron por um agendador externo).
@@ -55,10 +56,12 @@ const OVERDUE_SOURCE_STATUSES: CautionStatus[] = [
  * ATRASADA não são reprocessadas (não estão entre os estados de origem).
  */
 export async function markOverdueCautions(now: Date = new Date()): Promise<number> {
+  // Horários previstos são "hora de parede" de Cuiabá; compara na mesma base.
+  const wallNow = toAppWallClock(now);
   const candidates = await prisma.caution.findMany({
     where: {
       status: { in: OVERDUE_SOURCE_STATUSES },
-      plannedReturnAt: { lt: now },
+      plannedReturnAt: { lt: wallNow },
     },
     select: {
       id: true,
@@ -115,7 +118,7 @@ export async function markOverdueCautions(now: Date = new Date()): Promise<numbe
  * que ainda não foram lembradas. Idempotente via `withdrawalReminderSentAt`.
  */
 export async function sendWithdrawalReminders(now: Date = new Date()): Promise<number> {
-  const limit = new Date(now.getTime() + REMINDER_WINDOW_HOURS * 3_600_000);
+  const limit = new Date(toAppWallClock(now).getTime() + REMINDER_WINDOW_HOURS * 3_600_000);
   const candidates = await prisma.caution.findMany({
     where: {
       status: CautionStatus.AGUARDANDO_RETIRADA,
@@ -160,7 +163,7 @@ export async function sendWithdrawalReminders(now: Date = new Date()): Promise<n
  * não foram lembradas. Idempotente via `returnReminderSentAt`.
  */
 export async function sendReturnReminders(now: Date = new Date()): Promise<number> {
-  const limit = new Date(now.getTime() + REMINDER_WINDOW_HOURS * 3_600_000);
+  const limit = new Date(toAppWallClock(now).getTime() + REMINDER_WINDOW_HOURS * 3_600_000);
   const candidates = await prisma.caution.findMany({
     where: {
       status: CautionStatus.EM_USO,

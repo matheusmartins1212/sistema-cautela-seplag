@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { CAUTION_STATUS_LABEL } from "@/components/cautions/labels";
 import { VEHICLE_CATEGORY_LABEL } from "@/components/vehicles/labels";
+import { toAppWallClock } from "@/shared/time";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,8 @@ function str(v: string | string[] | undefined): string | undefined {
 
 export default async function AdminCalendarioPage({ searchParams }: Props) {
   const raw = await searchParams;
-  const now = new Date();
+  // Mês corrente pelo calendário de Cuiabá.
+  const now = toAppWallClock(new Date());
 
   // Mês selecionado (YYYY-MM); default mês atual.
   const monthParam = str(raw.month);
