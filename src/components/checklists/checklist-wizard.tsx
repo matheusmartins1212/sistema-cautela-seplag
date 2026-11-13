@@ -25,6 +25,7 @@ import {
   FUEL_LEVEL_LABEL,
   ITEM_GROUP_LABEL,
 } from "./labels";
+import { toAppWallClock } from "@/shared/time";
 
 interface Props {
   cautionId: string;
@@ -68,10 +69,10 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
 
   // Estado do formulário
   const [realDate, setRealDate] = useState(
-    checklist.realDate ?? new Date().toISOString().slice(0, 10),
+    checklist.realDate ?? toAppWallClock(new Date()).toISOString().slice(0, 10),
   );
   const [realTime, setRealTime] = useState(
-    checklist.realTime ?? new Date().toISOString().slice(11, 16),
+    checklist.realTime ?? toAppWallClock(new Date()).toISOString().slice(11, 16),
   );
   const [mileage, setMileage] = useState<string>(
     checklist.mileage != null ? String(checklist.mileage) : "",
