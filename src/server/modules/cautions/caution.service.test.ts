@@ -128,7 +128,7 @@ describe("listMyCautions", () => {
 
 type Mock = ReturnType<typeof vi.fn>;
 
-function mockCancelFlow(status: string, vehicleStatus: string, otherActive = 0) {
+function mockCancelFlow(status: string, vehicleStatus: string, otherActive: string[] = []) {
   (prisma.caution.findUnique as Mock).mockResolvedValue({
     ...baseCaution,
     status,
@@ -136,7 +136,8 @@ function mockCancelFlow(status: string, vehicleStatus: string, otherActive = 0) 
   });
   (prisma.caution.updateMany as Mock).mockResolvedValue({ count: 1 });
   (prisma.checklist.updateMany as Mock).mockResolvedValue({ count: 0 });
-  (prisma.caution.count as Mock).mockResolvedValue(otherActive);
+  // Cautelas ativas restantes do mesmo veículo (a cancelada já não conta).
+  (prisma.caution.findMany as Mock).mockResolvedValue(otherActive.map((s) => ({ status: s })));
   (prisma.caution.findUniqueOrThrow as Mock).mockResolvedValue({
     ...baseCaution,
     status: "CANCELADA",
@@ -191,9 +192,18 @@ describe("cancelCautionByAdmin", () => {
   });
 
   it("NÃO libera o veículo se outra cautela ativa usa o mesmo carro", async () => {
-    mockCancelFlow("AGUARDANDO_RETIRADA", "EM_USO", 1);
+    mockCancelFlow("AGUARDANDO_RETIRADA", "EM_USO", ["EM_USO"]);
     await cancelCautionByAdmin("c1", { reason: "ok" }, baseAdminActor);
     expect(prisma.vehicle.update).not.toHaveBeenCalled();
+  });
+
+  it("deixa o veículo reservado se ainda há reserva futura aprovada para ele", async () => {
+    mockCancelFlow("EM_USO", "EM_USO", ["AGUARDANDO_RETIRADA"]);
+    await cancelCautionByAdmin("c1", { reason: "ok" }, baseAdminActor);
+    expect(prisma.vehicle.update).toHaveBeenCalledWith({
+      where: { id: "v1" },
+      data: { currentStatus: "RESERVADO" },
+    });
   });
 
   it.each(["FINALIZADA", "FINALIZADA_COM_OBSERVACAO", "CANCELADA"])(

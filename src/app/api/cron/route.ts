@@ -20,8 +20,9 @@ function secretMatches(provided: string, expected: string): boolean {
  * `Authorization: Bearer <segredo>`. Se `CRON_SECRET` não estiver configurado,
  * a rota responde como inexistente (recurso desabilitado). Deve ser chamada por
  * um agendador externo (cron do host, Vercel Cron, GitHub Actions, etc.).
+ * Aceita GET porque é assim que o Vercel Cron chama (com o mesmo cabeçalho).
  */
-export const POST = handleRoute(async (req) => {
+const runJobs = handleRoute(async (req) => {
   const expected = env.CRON_SECRET;
   if (!expected) {
     // Rota desabilitada: não revela sua existência.
@@ -41,3 +42,6 @@ export const POST = handleRoute(async (req) => {
   });
   return jsonOk(result);
 });
+
+export const POST = runJobs;
+export const GET = runJobs;

@@ -9,6 +9,7 @@ import {
   type VehicleRequest,
 } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
+import { isWorkflowStatus } from "@/server/modules/vehicles/vehicle.schemas";
 import { env } from "@/server/config/env";
 import { Errors } from "@/server/lib/errors";
 import { recordAudit } from "@/server/lib/audit";
@@ -336,9 +337,13 @@ export async function approveRequest(
   if (!vehicle.active) {
     throw Errors.conflict("Veículo está inativo e não pode ser liberado.");
   }
+  // Disponível ou dentro do fluxo de cautelas (reservado, em uso, em conferência):
+  // reservas futuras podem ser aprovadas enquanto o carro está fora, desde que
+  // não haja choque de período (checado abaixo). Manutenção, bloqueio, baixa e
+  // inatividade impedem a aprovação.
   if (
     vehicle.currentStatus !== VehicleStatus.DISPONIVEL &&
-    vehicle.currentStatus !== VehicleStatus.RESERVADO
+    !isWorkflowStatus(vehicle.currentStatus)
   ) {
     throw Errors.conflict(`Veículo não está disponível (status atual: ${vehicle.currentStatus}).`);
   }
@@ -399,10 +404,15 @@ export async function approveRequest(
             decidedAt: new Date(),
           },
         });
-        const updatedVehicle = await tx.vehicle.update({
-          where: { id: vehicle.id },
-          data: { currentStatus: VehicleStatus.RESERVADO },
-        });
+        // Só um carro livre passa a "Reservado"; se ele está em uso ou em
+        // conferência, esse estado físico prevalece até a devolução.
+        const updatedVehicle =
+          vehicle.currentStatus === VehicleStatus.DISPONIVEL
+            ? await tx.vehicle.update({
+                where: { id: vehicle.id },
+                data: { currentStatus: VehicleStatus.RESERVADO },
+              })
+            : vehicle;
         return {
           request: updatedRequest,
           caution: newCaution,

@@ -263,14 +263,28 @@ describe("approveRequest", () => {
     });
   });
 
-  it("rejeita se veículo não está DISPONIVEL", async () => {
+  it.each(["EM_MANUTENCAO", "BLOQUEADO", "BAIXADO", "INATIVO"])(
+    "rejeita se veículo está %s",
+    async (status) => {
+      (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ...baseVehicle,
+        currentStatus: status,
+      });
+      await expect(approveRequest("r1", { vehicleId: "v1" }, baseAdminActor)).rejects.toMatchObject(
+        { code: "CONFLICT" },
+      );
+    },
+  );
+
+  it("aprova reserva futura com o carro em uso, sem mudar o status atual dele", async () => {
     (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...baseVehicle,
       currentStatus: "EM_USO",
     });
-    await expect(approveRequest("r1", { vehicleId: "v1" }, baseAdminActor)).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
+    const result = await approveRequest("r1", { vehicleId: "v1" }, baseAdminActor);
+    expect(result.caution.publicCode).toMatch(/^CTL-/);
+    expect(prisma.vehicle.update).not.toHaveBeenCalled();
+    expect(result.vehicle.currentStatus).toBe("EM_USO");
   });
 
   it("rejeita se houver cautela conflitante no período", async () => {

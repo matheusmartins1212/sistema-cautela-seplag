@@ -2,7 +2,6 @@ import {
   CautionStatus,
   ChecklistStatus,
   Prisma,
-  VehicleStatus,
   type Caution,
   type User,
   type Vehicle,
@@ -15,7 +14,7 @@ import type { RequestContext } from "@/server/lib/request-context";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import type { SessionUser } from "@/server/modules/auth/session";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
-import { isWorkflowStatus } from "@/server/modules/vehicles/vehicle.schemas";
+import { syncVehicleStatus } from "./vehicle-sync";
 import type {
   CancelCautionInput,
   ListAdminCautionsQuery,
@@ -198,26 +197,12 @@ export async function cancelCautionByAdmin(
       data: { status: ChecklistStatus.CANCELADO },
     });
 
-    // Libera o veículo se ele está num estado de fluxo (reservado, em uso, aguardando
-    // devolução...). O admin não consegue mudar esses estados à mão, então sem isso o
-    // carro ficaria preso. Se outra cautela ativa usa o mesmo veículo, quem manda no
-    // status é ela; não mexe.
-    if (caution!.vehicle && isWorkflowStatus(caution!.vehicle.currentStatus)) {
-      const otherActive = await tx.caution.count({
-        where: {
-          vehicleId: caution!.vehicleId,
-          id: { not: id },
-          status: { in: [...CANCELLABLE_CAUTION_STATUSES] },
-        },
-      });
-      if (otherActive === 0) {
-        await tx.vehicle.update({
-          where: { id: caution!.vehicleId },
-          data: { currentStatus: VehicleStatus.DISPONIVEL },
-        });
-      }
+    // Recalcula o status do carro pelas cautelas ativas que sobraram: livre se
+    // não há outra, reservado se há reserva futura, em uso se outra está fora.
+    // Carros em manutenção/bloqueio (controle do admin) não são alterados.
+    if (caution!.vehicle) {
+      await syncVehicleStatus(tx, caution!.vehicle);
     }
-
     return tx.caution.findUniqueOrThrow({ where: { id } });
   });
 

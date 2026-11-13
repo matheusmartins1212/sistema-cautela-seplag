@@ -6,6 +6,7 @@ import {
   type Caution,
   type Checklist,
   type ChecklistItem,
+  type Prisma,
   type Vehicle,
 } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
@@ -15,6 +16,10 @@ import type { RequestContext } from "@/server/lib/request-context";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import type { SessionUser } from "@/server/modules/auth/session";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
+import {
+  VEHICLE_OUT_CAUTION_STATUSES,
+  syncVehicleStatus,
+} from "@/server/modules/cautions/vehicle-sync";
 import type {
   ReviewChecklistInput,
   SaveChecklistDraftInput,
@@ -49,13 +54,41 @@ function ensureCanWrite(c: Checklist, actor: SessionUser): void {
   if (c.userId !== actor.user.id) {
     throw Errors.notFound("Checklist não encontrado.");
   }
-  if (c.status !== ChecklistStatus.PENDENTE && c.status !== ChecklistStatus.EM_PREENCHIMENTO) {
+  if (
+    c.status !== ChecklistStatus.PENDENTE &&
+    c.status !== ChecklistStatus.EM_PREENCHIMENTO &&
+    c.status !== ChecklistStatus.RETIFICADO
+  ) {
     throw Errors.conflict("Checklist já enviado — não pode mais ser editado pelo usuário.");
   }
 }
 
 function parseIsoDate(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+/**
+ * Um carro pode ter reservas futuras aprovadas enquanto ainda está fora com
+ * outra cautela. A retirada só é liberada quando ele voltou ao pátio.
+ */
+async function ensureVehicleIsBack(
+  client: Pick<Prisma.TransactionClient, "caution">,
+  vehicleId: string,
+  cautionId: string,
+): Promise<void> {
+  const blocking = await client.caution.findFirst({
+    where: {
+      vehicleId,
+      id: { not: cautionId },
+      status: { in: [...VEHICLE_OUT_CAUTION_STATUSES] },
+    },
+    select: { publicCode: true },
+  });
+  if (blocking) {
+    throw Errors.conflict(
+      `O veículo ainda não foi devolvido (cautela ${blocking.publicCode}). Aguarde a devolução para fazer a retirada.`,
+    );
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -164,10 +197,18 @@ export async function getOrInitChecklistForCaution(
     ) {
       throw Errors.conflict("Checklist de retirada não está disponível para esta cautela.");
     }
+    if (
+      caution.status === CautionStatus.AGUARDANDO_RETIRADA ||
+      caution.status === CautionStatus.RETIRADA_EM_ANDAMENTO
+    ) {
+      await ensureVehicleIsBack(prisma, caution.vehicleId, caution.id);
+    }
   } else {
+    // ATRASADA continua aceitando a devolução: atrasar não pode impedir devolver.
     if (
       caution.status !== CautionStatus.EM_USO &&
       caution.status !== CautionStatus.AGUARDANDO_DEVOLUCAO &&
+      caution.status !== CautionStatus.ATRASADA &&
       caution.status !== CautionStatus.DEVOLUCAO_EM_ANALISE &&
       caution.status !== CautionStatus.FINALIZADA &&
       caution.status !== CautionStatus.FINALIZADA_COM_OBSERVACAO
@@ -363,10 +404,12 @@ export async function submitChecklist(
     const caution = (current as Checklist & { caution: Caution & { vehicle: Vehicle } }).caution;
     if (current!.type === ChecklistType.RETIRADA) {
       // Aceita estados AGUARDANDO_RETIRADA ou RETIRADA_EM_ANDAMENTO.
+      // Reenvio após retificação (cautela já EM_USO) não muda status.
       if (
         caution.status === CautionStatus.AGUARDANDO_RETIRADA ||
         caution.status === CautionStatus.RETIRADA_EM_ANDAMENTO
       ) {
+        await ensureVehicleIsBack(tx, caution.vehicleId, caution.id);
         await tx.caution.update({
           where: { id: caution.id },
           data: {
@@ -383,10 +426,12 @@ export async function submitChecklist(
         });
       }
     } else {
-      // DEVOLUCAO
+      // DEVOLUCAO (inclusive atrasada). Reenvio após retificação, com a cautela
+      // já em DEVOLUCAO_EM_ANALISE, apenas volta o checklist para análise.
       if (
         caution.status === CautionStatus.EM_USO ||
-        caution.status === CautionStatus.AGUARDANDO_DEVOLUCAO
+        caution.status === CautionStatus.AGUARDANDO_DEVOLUCAO ||
+        caution.status === CautionStatus.ATRASADA
       ) {
         await tx.caution.update({
           where: { id: caution.id },
@@ -420,6 +465,10 @@ export async function submitChecklist(
       mileage: input.mileage,
       fuelLevel: input.fuelLevel,
       hasDamage: input.hasDamage ?? false,
+      resubmission: current!.status === ChecklistStatus.RETIFICADO,
+      returnedLate:
+        current!.type === ChecklistType.DEVOLUCAO &&
+        (current as Checklist & { caution: Caution }).caution.status === CautionStatus.ATRASADA,
     },
     context,
   });
@@ -471,14 +520,19 @@ export async function reviewChecklist(
       newStatus === ChecklistStatus.APROVADO &&
       caution.status === CautionStatus.DEVOLUCAO_EM_ANALISE
     ) {
+      // Devolução fora do prazo ou com avaria encerra "com observação".
+      const returnedLate =
+        !!caution.actualReturnAt && caution.actualReturnAt > caution.plannedReturnAt;
+      const finalStatus =
+        returnedLate || current!.hasDamage
+          ? CautionStatus.FINALIZADA_COM_OBSERVACAO
+          : CautionStatus.FINALIZADA;
       await tx.caution.update({
         where: { id: caution.id },
-        data: { status: CautionStatus.FINALIZADA },
+        data: { status: finalStatus },
       });
-      await tx.vehicle.update({
-        where: { id: caution.vehicleId },
-        data: { currentStatus: VehicleStatus.DISPONIVEL },
-      });
+      // Libera o carro, ou mantém reservado se já há outra cautela aprovada para ele.
+      await syncVehicleStatus(tx, caution.vehicle);
     }
   });
 
@@ -512,7 +566,7 @@ export async function reviewChecklist(
       userId: current!.userId,
       type: "CHECKLIST_PENDING",
       title: "Ajuste solicitado no checklist",
-      message: `Seu checklist de ${typeLabel} precisa de ajustes.${
+      message: `Seu checklist de ${typeLabel} precisa de ajustes. Corrija e envie novamente.${
         input.reviewNotes ? ` ${input.reviewNotes}` : ""
       }`,
       relatedEntityType: "Caution",

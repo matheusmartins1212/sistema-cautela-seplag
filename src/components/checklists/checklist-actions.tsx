@@ -18,17 +18,20 @@ export function ChecklistActions({ cautionId, status }: Props) {
     status === "AGUARDANDO_DEVOLUCAO" ||
     status === "DEVOLUCAO_EM_ANALISE" ||
     status === "FINALIZADA" ||
-    status === "FINALIZADA_COM_OBSERVACAO";
+    status === "FINALIZADA_COM_OBSERVACAO" ||
+    status === "ATRASADA";
 
   const showDevolucao =
     status === "EM_USO" ||
     status === "AGUARDANDO_DEVOLUCAO" ||
+    status === "ATRASADA" ||
     status === "DEVOLUCAO_EM_ANALISE" ||
     status === "FINALIZADA" ||
     status === "FINALIZADA_COM_OBSERVACAO";
 
   const retiradaActive = status === "AGUARDANDO_RETIRADA" || status === "RETIRADA_EM_ANDAMENTO";
-  const devolucaoActive = status === "EM_USO" || status === "AGUARDANDO_DEVOLUCAO";
+  const devolucaoActive =
+    status === "EM_USO" || status === "AGUARDANDO_DEVOLUCAO" || status === "ATRASADA";
 
   if (!showRetirada && !showDevolucao) return null;
 
