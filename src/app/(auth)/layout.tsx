@@ -1,12 +1,23 @@
+import Image from "next/image";
+import brasao from "@/assets/brasao-mt.png";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <header className="bg-institutional-800 text-white">
-        <div className="mx-auto max-w-5xl px-6 py-4">
-          <p className="text-xs font-medium tracking-wide text-institutional-100">
-            Governo de MT · SEPLAG
-          </p>
-          <p className="text-base font-semibold">Sistema de Cautela de Veículos</p>
+        <div className="mx-auto flex max-w-5xl items-center gap-4 px-6 py-4">
+          <Image
+            src={brasao}
+            alt="Brasão do Estado de Mato Grosso"
+            priority
+            className="h-12 w-auto shrink-0"
+          />
+          <div>
+            <p className="text-xs font-medium tracking-wide text-institutional-100">
+              SEPLAG / SATGF
+            </p>
+            <p className="text-base font-semibold">Sistema de Cautela de Veículos</p>
+          </div>
         </div>
       </header>
 

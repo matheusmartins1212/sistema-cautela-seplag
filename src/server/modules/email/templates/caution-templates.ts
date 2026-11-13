@@ -54,8 +54,7 @@ export function buildWithdrawalReminder(p: WithdrawalReminderParams): EmailMessa
         "No momento da retirada, preencha o <strong>checklist de retirada</strong> na plataforma.",
       ],
       action: { label: "Abrir cautela", url: p.detailsUrl },
-      footerNote:
-        "Caso não vá mais utilizar o veículo, solicite o cancelamento à gestão de frota da SEPLAG.",
+      footerNote: "Caso não vá mais utilizar o veículo, solicite o cancelamento à SATGF/SEPLAG.",
     },
     { type: "Caution", id: p.cautionId },
   );
@@ -118,8 +117,7 @@ export function buildOverdueAlert(p: OverdueAlertParams): EmailMessage {
         "Regularize a devolução o quanto antes, preenchendo o checklist de devolução na plataforma.",
       ],
       action: { label: "Regularizar cautela", url: p.detailsUrl },
-      footerNote:
-        "Esta cautela consta como ATRASADA. Em caso de dúvidas, contate a gestão de frota da SEPLAG.",
+      footerNote: "Esta cautela consta como ATRASADA. Em caso de dúvidas, contate a SATGF/SEPLAG.",
     },
     { type: "Caution", id: p.cautionId },
   );

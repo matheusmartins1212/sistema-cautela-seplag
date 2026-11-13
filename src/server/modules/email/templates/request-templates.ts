@@ -54,8 +54,7 @@ export function buildRequestReceived(p: RequestReceivedParams): EmailMessage {
         "Você receberá um novo e-mail quando a análise for concluída.",
       ],
       action: { label: "Acompanhar solicitação", url: p.detailsUrl },
-      footerNote:
-        "Em caso de dúvidas, contate a gestão de frota da SEPLAG com o código da solicitação.",
+      footerNote: "Em caso de dúvidas, contate a SATGF/SEPLAG com o código da solicitação.",
     },
     { type: "VehicleRequest", id: p.requestId },
   );
@@ -119,8 +118,7 @@ export function buildRequestRejected(p: RequestRejectedParams): EmailMessage {
         "Caso necessário, você pode abrir uma nova solicitação ajustando os dados conforme o motivo.",
       ],
       action: { label: "Ver detalhes", url: p.detailsUrl },
-      footerNote:
-        "Em caso de dúvidas, contate a gestão de frota da SEPLAG com o código da solicitação.",
+      footerNote: "Em caso de dúvidas, contate a SATGF/SEPLAG com o código da solicitação.",
     },
     { type: "VehicleRequest", id: p.requestId },
   );

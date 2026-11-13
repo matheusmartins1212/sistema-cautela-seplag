@@ -3,7 +3,7 @@
  * compatível com Gmail/Outlook (CSS inline, tabelas). Sem dependências externas.
  */
 const BRAND = "Sistema de Cautela de Veículos";
-const SUBBRAND = "Governo de MT · SEPLAG";
+const SUBBRAND = "SEPLAG / SATGF";
 
 export interface LayoutParts {
   heading: string;
@@ -67,7 +67,7 @@ export function renderText(parts: LayoutParts): string {
   lines.push(
     "",
     "Mensagem automática · não responda este e-mail.",
-    "Uso restrito e auditado — SEPLAG-MT.",
+    "Uso restrito e auditado — SEPLAG / SATGF.",
   );
   return lines.join("\n");
 }

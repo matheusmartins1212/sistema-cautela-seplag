@@ -32,7 +32,7 @@ const envSchema = z
     SUPER_ADMIN_REGISTRATION: z.string().optional(),
 
     EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
-    EMAIL_FROM_NAME: z.string().default("Sistema de Cautela de Veículos - SEPLAG-MT"),
+    EMAIL_FROM_NAME: z.string().default("Sistema de Cautela de Veículos - SEPLAG/SATGF"),
     EMAIL_FROM_ADDRESS: z.string().email().default("nao-responda@seplag.mt.gov.br"),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().positive().optional(),

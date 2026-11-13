@@ -9,7 +9,7 @@ import {
 import { prisma } from "@/server/db/prisma";
 
 /**
- * Agregações para o painel administrativo (gestão de frota SEPLAG). Apenas contagens — não
+ * Agregações para o painel administrativo (SATGF/SEPLAG). Apenas contagens — não
  * expõe dados pessoais. A autorização é garantida pelo layout /admin (ADMIN+).
  */
 

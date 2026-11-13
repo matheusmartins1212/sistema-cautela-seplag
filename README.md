@@ -1,4 +1,4 @@
-# Sistema de Cautela de Veículos — SEPLAG-MT
+# Sistema de Cautela de Veículos — SEPLAG / SATGF
 
 Plataforma institucional para controle completo de **cautela e agendamento de veículos oficiais** da Secretaria de Estado de Planejamento e Gestão de Mato Grosso (SEPLAG-MT). Substitui o fluxo anterior baseado em Google Forms, planilhas e sistema de agendamento, centralizando cadastro, solicitação, aprovação, checklists de retirada/devolução, fotos, avarias, histórico, auditoria e notificações em uma única plataforma segura e auditável.
 

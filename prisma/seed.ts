@@ -1,5 +1,5 @@
 /**
- * Seed inicial do Sistema de Cautela de Veículos — SEPLAG-MT.
+ * Seed inicial do Sistema de Cautela de Veículos — SEPLAG / SATGF.
  *
  * Idempotente (usa upsert): pode ser executado múltiplas vezes com segurança.
  * Popula catálogos institucionais e cria o super administrador inicial a partir
@@ -33,7 +33,7 @@ const CAUTION_REASONS = [
 // Lotações / setores (catálogo inicial; ajuste conforme o organograma da SEPLAG)
 const ORG_UNITS = [
   "Gabinete do Secretário",
-  "Gestão de Frota",
+  "SATGF",
   "Planejamento",
   "Orçamento",
   "Gestão de Pessoas",
@@ -196,8 +196,8 @@ async function seedSuperAdmin() {
       registrationNumber: registration,
       email: normalizedEmail,
       phone: "",
-      sector: "Gestão de Frota",
-      department: "Gestão de Frota",
+      sector: "SATGF",
+      department: "SATGF",
       role: "SUPER_ADMIN",
       status: "ACTIVE",
       passwordHash,

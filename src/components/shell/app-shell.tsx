@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import brasao from "@/assets/brasao-mt.png";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { LogoutButton } from "@/components/logout-button";
@@ -47,11 +49,12 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
   );
 
   const brand = (
-    <div className="border-b border-institutional-700/50 px-5 py-4">
-      <p className="text-xs font-medium tracking-wide text-institutional-200">
-        Governo de MT · SEPLAG
-      </p>
-      <p className="text-base font-semibold text-white">{brandTitle}</p>
+    <div className="flex items-center gap-3 border-b border-institutional-700/50 px-5 py-4">
+      <Image src={brasao} alt="Brasão do Estado de Mato Grosso" className="h-11 w-auto shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs font-medium tracking-wide text-institutional-200">SEPLAG / SATGF</p>
+        <p className="text-base font-semibold leading-tight text-white">{brandTitle}</p>
+      </div>
     </div>
   );
 
@@ -90,6 +93,7 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
             >
               <MenuIcon />
             </button>
+            <Image src={brasao} alt="" aria-hidden="true" className="h-7 w-auto lg:hidden" />
             <span className="text-sm font-semibold lg:hidden">{brandTitle}</span>
           </div>
           <div className="flex items-center gap-4">

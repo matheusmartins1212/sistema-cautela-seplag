@@ -3,11 +3,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Sistema de Cautela de Veículos — SEPLAG-MT",
-    template: "%s · Cautela de Veículos — SEPLAG-MT",
+    default: "Sistema de Cautela de Veículos — SEPLAG / SATGF",
+    template: "%s · Cautela de Veículos — SEPLAG / SATGF",
   },
   description:
-    "Plataforma institucional de cautela e agendamento de veículos oficiais — SEPLAG-MT.",
+    "Plataforma institucional de cautela e agendamento de veículos oficiais — SEPLAG / SATGF.",
   robots: { index: false, follow: false }, // sistema interno: não indexar
 };
 
