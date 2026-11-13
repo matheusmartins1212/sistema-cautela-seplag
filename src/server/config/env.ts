@@ -23,6 +23,9 @@ const envSchema = z
     EMAIL_CONFIRMATION_TOKEN_EXPIRES_IN: z.string().default("24h"),
     PASSWORD_RESET_TOKEN_EXPIRES_IN: z.string().default("30m"),
 
+    // Contato de suporte exibido no rodapé do login (ex.: "satgf@seplag.mt.gov.br · ramal 0000").
+    SUPPORT_CONTACT: z.string().optional(),
+
     ALLOWED_EMAIL_DOMAIN: z.string().default("seplag.mt.gov.br"),
 
     SUPER_ADMIN_EMAIL: z.string().email().optional(),

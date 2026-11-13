@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Field } from "@/components/ui/field";
+import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { apiPost } from "@/lib/api-client";
@@ -52,11 +53,8 @@ function LoginForm() {
       {error && <Alert tone="error">{error}</Alert>}
       {needsConfirmation && (
         <Alert tone="warning">
-          Sua conta ainda não foi confirmada. Verifique seu e-mail ou{" "}
-          <Link href="/recuperar-senha" className="underline">
-            solicite ajuda
-          </Link>
-          .
+          Sua conta ainda não foi confirmada. Verifique seu e-mail institucional ou peça à SATGF
+          para liberar seu acesso.
         </Alert>
       )}
 
@@ -69,13 +67,7 @@ function LoginForm() {
           placeholder="nome@seplag.mt.gov.br"
           required
         />
-        <Field
-          label="Senha"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
+        <PasswordField label="Senha" name="password" autoComplete="current-password" required />
         <div className="text-right">
           <Link href="/recuperar-senha" className="text-sm text-institutional-700 hover:underline">
             Esqueci minha senha

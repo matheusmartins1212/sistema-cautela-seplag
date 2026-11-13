@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Field } from "@/components/ui/field";
+import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { apiPost } from "@/lib/api-client";
@@ -49,7 +50,8 @@ export default function RegisterPage() {
         <h1 className="text-xl font-bold text-institutional-900">Confirme seu e-mail</h1>
         <Alert tone="success">
           Cadastro recebido. Enviamos um e-mail de confirmação para o endereço institucional
-          informado. Sua conta será ativada após a confirmação.
+          informado. Sua conta será ativada após a confirmação. Se o e-mail não chegar, a SATGF pode
+          liberar seu acesso.
         </Alert>
         <Link href="/login" className="text-sm font-medium text-institutional-700 hover:underline">
           Voltar para o login
@@ -107,19 +109,17 @@ export default function RegisterPage() {
           <Field label="Setor" name="sector" errors={fieldErrors.sector} required />
         </div>
         <Field label="Lotação" name="department" errors={fieldErrors.department} required />
-        <Field
+        <PasswordField
           label="Senha"
           name="password"
-          type="password"
           autoComplete="new-password"
           hint="Mínimo 10 caracteres, com maiúscula, minúscula, número e símbolo."
           errors={fieldErrors.password}
           required
         />
-        <Field
+        <PasswordField
           label="Confirmar senha"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           errors={fieldErrors.confirmPassword}
           required

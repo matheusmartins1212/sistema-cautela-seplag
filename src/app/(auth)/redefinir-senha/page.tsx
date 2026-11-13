@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Field } from "@/components/ui/field";
+import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { apiPost } from "@/lib/api-client";
@@ -66,19 +66,17 @@ function ResetForm() {
       {error && <Alert tone="error">{error}</Alert>}
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <Field
+        <PasswordField
           label="Nova senha"
           name="password"
-          type="password"
           autoComplete="new-password"
           hint="Mínimo 10 caracteres, com maiúscula, minúscula, número e símbolo."
           errors={fieldErrors.password}
           required
         />
-        <Field
+        <PasswordField
           label="Confirmar nova senha"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           errors={fieldErrors.confirmPassword}
           required

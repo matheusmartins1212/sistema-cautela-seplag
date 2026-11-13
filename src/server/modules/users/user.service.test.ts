@@ -66,13 +66,32 @@ describe("setUserStatus", () => {
     expect(vi.mocked(recordAudit).mock.calls[0]?.[0]?.action).toBe("USER_DEACTIVATED");
   });
 
-  it("não reativa conta pendente de confirmação", async () => {
+  it("não bloqueia conta pendente de confirmação", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(
       target({ status: "PENDING_EMAIL_VERIFICATION" }) as never,
     );
     await expect(
-      setUserStatus("u-target", { status: "ACTIVE" }, actorOf("admin", "ADMIN")),
+      setUserStatus("u-target", { status: "BLOCKED" }, actorOf("admin", "ADMIN")),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("confirma manualmente conta pendente, marcando o e-mail como verificado", async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(
+      target({ status: "PENDING_EMAIL_VERIFICATION" }) as never,
+    );
+    vi.mocked(prisma.user.update).mockResolvedValue(target() as never);
+
+    await setUserStatus("u-target", { status: "ACTIVE" }, actorOf("admin", "ADMIN"));
+
+    const data = vi.mocked(prisma.user.update).mock.calls[0]?.[0]?.data as {
+      status: string;
+      emailVerifiedAt?: Date;
+    };
+    expect(data.status).toBe("ACTIVE");
+    expect(data.emailVerifiedAt).toBeInstanceOf(Date);
+    const audit = vi.mocked(recordAudit).mock.calls[0]?.[0];
+    expect(audit?.action).toBe("USER_ACTIVATED");
+    expect(audit?.metadata).toMatchObject({ manualEmailConfirmation: true });
   });
 
   it("ativar não revoga sessões e audita USER_ACTIVATED", async () => {

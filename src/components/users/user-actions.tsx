@@ -64,10 +64,19 @@ export function UserActions({ userId, currentStatus, currentRole, canChangeRole,
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700">Acesso</h3>
         {currentStatus === "PENDING_EMAIL_VERIFICATION" ? (
-          <Alert tone="info">
-            Usuário aguardando confirmação de e-mail. O acesso é liberado quando ele confirma o
-            cadastro.
-          </Alert>
+          <div className="space-y-2">
+            <Alert tone="info">
+              Usuário aguardando confirmação de e-mail. Se a mensagem não chegou, você pode
+              confirmar o cadastro manualmente (registrado em auditoria).
+            </Alert>
+            <Button
+              type="button"
+              loading={loading === "ACTIVE"}
+              onClick={() => setStatus("ACTIVE")}
+            >
+              Confirmar cadastro e liberar acesso
+            </Button>
+          </div>
         ) : currentStatus === "ACTIVE" ? (
           <div className="space-y-2">
             <Textarea
