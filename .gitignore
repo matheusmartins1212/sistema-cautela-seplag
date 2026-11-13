@@ -1,0 +1,52 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env files — NUNCA versionar segredos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# typescript
+*.tsbuildinfo
+
+# prisma
+/prisma/*.db
+/prisma/*.db-journal
+
+# uploads locais (storage de fotos em dev)
+/storage/
+/uploads/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Dados institucionais sensíveis (frota real: placas, inclusive veículos
+# velados). Servem apenas como fonte do import (npm run db:import-fleet) e
+# devem permanecer FORA do versionamento.
+*.xlsx

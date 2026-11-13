@@ -1,0 +1,79 @@
+import { z } from "zod";
+import { env } from "@/server/config/env";
+import { normalizeCpf, isValidCpf } from "@/shared/validation/cpf";
+import { normalizeEmail, isAllowedInstitutionalEmail } from "@/shared/validation/email-domain";
+import { checkPasswordStrength } from "@/shared/validation/password";
+
+/**
+ * Schemas de entrada da autenticação. Toda regra crítica (domínio do e-mail,
+ * validade do CPF, força da senha) é aplicada AQUI, no backend, via Zod.
+ */
+
+const institutionalEmail = z
+  .string()
+  .transform((v) => normalizeEmail(v))
+  .refine((email) => isAllowedInstitutionalEmail(email, env.ALLOWED_EMAIL_DOMAIN), {
+    message: `O e-mail deve pertencer ao domínio institucional @${env.ALLOWED_EMAIL_DOMAIN}.`,
+  });
+
+const strongPassword = z.string().superRefine((value, ctx) => {
+  const result = checkPasswordStrength(value);
+  if (!result.valid) {
+    for (const message of result.errors) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    }
+  }
+});
+
+const cpfField = z
+  .string()
+  .transform((v) => normalizeCpf(v))
+  .refine((cpf) => isValidCpf(cpf), { message: "CPF inválido." });
+
+export const registerSchema = z
+  .object({
+    fullName: z.string().trim().min(3, "Informe o nome completo."),
+    cpf: cpfField,
+    registrationNumber: z.string().trim().min(1, "Informe o número de matrícula.").max(30),
+    email: institutionalEmail,
+    phone: z.string().trim().min(8, "Informe um telefone válido.").max(20),
+    sector: z.string().trim().min(1, "Informe o setor."),
+    department: z.string().trim().min(1, "Informe a lotação."),
+    password: strongPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem.",
+    path: ["confirmPassword"],
+  });
+
+export const loginSchema = z.object({
+  email: z.string().transform((v) => normalizeEmail(v)),
+  password: z.string().min(1, "Informe a senha."),
+});
+
+export const resendConfirmationSchema = z.object({
+  email: z.string().transform((v) => normalizeEmail(v)),
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().transform((v) => normalizeEmail(v)),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    password: strongPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem.",
+    path: ["confirmPassword"],
+  });
+
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;

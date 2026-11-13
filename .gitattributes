@@ -1,0 +1,15 @@
+# Normaliza fim de linha: o repositório guarda LF; o working tree usa LF.
+# Evita o ruído "LF will be replaced by CRLF" no Windows e mantém o Prettier
+# consistente entre sistemas.
+* text=auto eol=lf
+
+# Arquivos binários — nunca normalizar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.xls binary

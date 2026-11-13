@@ -1,0 +1,621 @@
+// =============================================================================
+// Sistema de Cautela de Veículos — SEPLAG-MT
+// Schema Prisma — fonte única do modelo de dados.
+//
+// Princípios:
+// - Constraints reais no banco (unique, FKs, índices).
+// - Soft delete via `deletedAt` onde faz sentido.
+// - Auditoria desacoplada (AuditLog) e logs de e-mail (EmailLog).
+// - Catálogos (motivos, lotações, locais, itens de checklist) gerenciáveis,
+//   enquanto os registros guardam o valor textual escolhido (integridade
+//   histórica + suporte a "Outro").
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================== ENUMS =======================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_EMAIL_VERIFICATION
+  ACTIVE
+  BLOCKED
+  INACTIVE
+}
+
+enum VehicleCategory {
+  PICKUP
+  SUV
+  HATCH
+}
+
+enum VehicleUsageType {
+  ADMINISTRATIVO
+  OPERACIONAL
+}
+
+enum VehicleStatus {
+  DISPONIVEL
+  RESERVADO
+  AGUARDANDO_RETIRADA
+  EM_USO
+  AGUARDANDO_DEVOLUCAO
+  DEVOLVIDO
+  EM_ANALISE
+  BLOQUEADO
+  EM_MANUTENCAO
+  BAIXADO
+  INATIVO
+}
+
+enum RequestStatus {
+  PENDENTE_ANALISE
+  APROVADA
+  NAO_APROVADA
+  CANCELADA_PELO_USUARIO
+  CANCELADA_PELO_ADMIN
+  AJUSTE_SOLICITADO
+}
+
+enum CautionStatus {
+  AGUARDANDO_RETIRADA
+  RETIRADA_EM_ANDAMENTO
+  EM_USO
+  AGUARDANDO_DEVOLUCAO
+  DEVOLUCAO_EM_ANALISE
+  FINALIZADA
+  FINALIZADA_COM_OBSERVACAO
+  CANCELADA
+  ATRASADA
+}
+
+enum Shift {
+  MATUTINO
+  VESPERTINO
+  INTEGRAL
+}
+
+enum ChecklistType {
+  RETIRADA
+  DEVOLUCAO
+}
+
+enum ChecklistStatus {
+  PENDENTE
+  EM_PREENCHIMENTO
+  ENVIADO
+  EM_ANALISE
+  APROVADO
+  RETIFICADO
+  CANCELADO
+}
+
+enum ChecklistAnswer {
+  BOM
+  RUIM
+  AUSENTE
+  NAO_SE_APLICA
+}
+
+enum FuelLevel {
+  CHEIO
+  TRES_QUARTOS
+  MEIO
+  UM_QUARTO
+  RESERVA
+  VAZIO
+}
+
+enum CleanlinessLevel {
+  LIMPO
+  REGULAR
+  SUJO
+}
+
+enum FuelCardStatus {
+  PRESENTE
+  AUSENTE
+  NAO_SE_APLICA
+}
+
+enum PhotoType {
+  DIANTEIRA
+  TRASEIRA
+  LATERAL_ESQUERDA
+  LATERAL_DIREITA
+  INTERIOR
+  PAINEL
+  QUILOMETRAGEM
+  COMBUSTIVEL
+  LOCAL_ESTACIONADO
+  AVARIA
+  ITEM
+  OUTRA
+}
+
+enum DamageSeverity {
+  LEVE
+  MODERADA
+  GRAVE
+}
+
+enum DamageStatus {
+  ABERTA
+  EM_ANALISE
+  RESOLVIDA
+  IMPROCEDENTE
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum EmailTemplate {
+  EMAIL_CONFIRMATION
+  PASSWORD_RESET
+  REQUEST_RECEIVED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  WITHDRAWAL_REMINDER
+  RETURN_REMINDER
+  OVERDUE_ALERT
+  CHECKLIST_PENDING
+}
+
+enum NotificationType {
+  REQUEST_RECEIVED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  CHECKLIST_RELEASED
+  CHECKLIST_PENDING
+  RETURN_OVERDUE
+  DAMAGE_UNDER_REVIEW
+  GENERAL
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  REGISTER
+  EMAIL_CONFIRMED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  REQUEST_CREATED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  REQUEST_CANCELLED
+  REQUEST_ADJUSTMENT_REQUESTED
+  CAUTION_FINALIZED
+  CAUTION_CANCELLED
+  STATUS_CHANGED
+  CHECKLIST_STARTED
+  CHECKLIST_SUBMITTED
+  CHECKLIST_REVIEWED
+  CHECKLIST_RECTIFIED
+  PHOTO_UPLOADED
+  VEHICLE_CREATED
+  VEHICLE_UPDATED
+  VEHICLE_STATUS_CHANGED
+  VEHICLE_BLOCKED
+  VEHICLE_UNBLOCKED
+  USER_ACTIVATED
+  USER_DEACTIVATED
+  USER_ROLE_CHANGED
+  UNAUTHORIZED_ACCESS_ATTEMPT
+}
+
+// =============================== MODELS ======================================
+
+model User {
+  id                 String     @id @default(cuid())
+  fullName           String
+  cpf                String     @unique // normalizado (apenas dígitos)
+  registrationNumber String     @unique // matrícula funcional
+  email              String     @unique // sempre lowercase
+  phone              String
+  sector             String
+  department         String
+  role               UserRole   @default(USER)
+  status             UserStatus @default(PENDING_EMAIL_VERIFICATION)
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  sessions                Session[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  requests                VehicleRequest[]         @relation("RequestUser")
+  decidedRequests         VehicleRequest[]         @relation("RequestAdmin")
+  cautions                Caution[]                @relation("CautionUser")
+  approvedCautions        Caution[]                @relation("CautionApprover")
+  checklists              Checklist[]              @relation("ChecklistUser")
+  reviewedChecklists      Checklist[]              @relation("ChecklistReviewer")
+  uploadedPhotos          ChecklistPhoto[]
+  createdDamageReports    DamageReport[]           @relation("DamageCreator")
+  reviewedDamageReports   DamageReport[]           @relation("DamageReviewer")
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+// Sessões server-side (cookie HttpOnly guarda apenas o id de sessão opaco).
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // hash do token de sessão; o token cru nunca é persistido
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Vehicle {
+  id             String           @id @default(cuid())
+  brand          String
+  model          String
+  plate          String           @unique
+  internalCode   String?          @unique
+  category       VehicleCategory
+  usageType      VehicleUsageType
+  linkedSector   String?
+  agency         String?
+  currentStatus  VehicleStatus    @default(DISPONIVEL)
+  currentMileage Int              @default(0)
+  notes          String?
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  cautions      Caution[]
+  checklists    Checklist[]
+  damageReports DamageReport[]
+
+  @@index([category])
+  @@index([currentStatus])
+  @@index([active])
+  @@map("vehicles")
+}
+
+model VehicleRequest {
+  id              String        @id @default(cuid())
+  publicCode      String        @unique
+  userId          String
+  withdrawalDate  DateTime      @db.Date
+  returnDate      DateTime      @db.Date
+  shift           Shift
+  withdrawalTime  String // HH:mm
+  returnTime      String // HH:mm
+  destination     String
+  reason          String
+  termNumber      String?
+  status          RequestStatus @default(PENDENTE_ANALISE)
+  adminId         String?
+  rejectionReason String?
+  adminNotes      String?
+  decidedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user    User     @relation("RequestUser", fields: [userId], references: [id])
+  admin   User?    @relation("RequestAdmin", fields: [adminId], references: [id])
+  caution Caution?
+
+  @@index([userId])
+  @@index([status])
+  @@index([withdrawalDate])
+  @@map("vehicle_requests")
+}
+
+model Caution {
+  id                  String        @id @default(cuid())
+  publicCode          String        @unique
+  requestId           String        @unique
+  userId              String
+  vehicleId           String
+  status              CautionStatus @default(AGUARDANDO_RETIRADA)
+  approvedByAdminId   String?
+  plannedWithdrawalAt DateTime
+  plannedReturnAt     DateTime
+  actualWithdrawalAt  DateTime?
+  actualReturnAt      DateTime?
+  finalNotes          String?
+  // Controle anti-duplicidade dos lembretes agendados (job /api/cron).
+  withdrawalReminderSentAt DateTime?
+  returnReminderSentAt     DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  request       VehicleRequest @relation(fields: [requestId], references: [id])
+  user          User           @relation("CautionUser", fields: [userId], references: [id])
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id])
+  approvedBy    User?          @relation("CautionApprover", fields: [approvedByAdminId], references: [id])
+  // Os checklists de RETIRADA e DEVOLUCAO são distinguidos por `Checklist.type`.
+  checklists    Checklist[]
+  damageReports DamageReport[]
+
+  @@index([userId])
+  @@index([vehicleId])
+  @@index([status])
+  @@map("cautions")
+}
+
+model Checklist {
+  id                    String            @id @default(cuid())
+  cautionId             String
+  vehicleId             String
+  userId                String
+  type                  ChecklistType
+  status                ChecklistStatus   @default(PENDENTE)
+  realDate              DateTime?         @db.Date
+  realTime              String? // HH:mm
+  mileage               Int?
+  fuelLevel             FuelLevel?
+  fuelCardStatus        FuelCardStatus?
+  internalCleanliness   CleanlinessLevel?
+  externalCleanliness   CleanlinessLevel?
+  parkingLocation       String?
+  hasChangesFromInitial Boolean?
+  changesDescription    String?
+  hasDamage             Boolean?
+  damageDescription     String?
+  generalNotes          String?
+  // Confirmação/assinatura do condutor no envio
+  confirmedAt           DateTime?
+  confirmedByUserId     String?
+  confirmationIp        String?
+  confirmationUa        String?
+  submittedAt           DateTime?
+  reviewedByAdminId     String?
+  reviewedAt            DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  caution       Caution          @relation(fields: [cautionId], references: [id], onDelete: Cascade)
+  vehicle       Vehicle          @relation(fields: [vehicleId], references: [id])
+  user          User             @relation("ChecklistUser", fields: [userId], references: [id])
+  reviewedBy    User?            @relation("ChecklistReviewer", fields: [reviewedByAdminId], references: [id])
+  items         ChecklistItem[]
+  photos        ChecklistPhoto[]
+  damageReports DamageReport[]
+
+  // Um checklist de cada tipo por cautela.
+  @@unique([cautionId, type])
+  @@index([status])
+  @@index([userId])
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id            String           @id @default(cuid())
+  checklistId   String
+  itemKey       String
+  itemLabel     String
+  category      String? // grupo do item (ex.: ILUMINACAO, NIVEIS, PNEUS, ESPECIFICO)
+  answer        ChecklistAnswer?
+  observation   String?
+  requiresPhoto Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  checklist Checklist        @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  photos    ChecklistPhoto[]
+
+  @@unique([checklistId, itemKey])
+  @@index([checklistId])
+  @@map("checklist_items")
+}
+
+model ChecklistPhoto {
+  id               String    @id @default(cuid())
+  checklistId      String
+  checklistItemId  String?
+  type             PhotoType
+  fileKey          String    @unique // chave interna no storage (nunca o nome original)
+  originalName     String
+  mimeType         String
+  size             Int
+  uploadedByUserId String
+  createdAt        DateTime  @default(now())
+
+  checklist     Checklist      @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  checklistItem ChecklistItem? @relation(fields: [checklistItemId], references: [id], onDelete: SetNull)
+  uploadedBy    User           @relation(fields: [uploadedByUserId], references: [id])
+
+  @@index([checklistId])
+  @@map("checklist_photos")
+}
+
+model DamageReport {
+  id                String         @id @default(cuid())
+  vehicleId         String
+  cautionId         String?
+  checklistId       String?
+  description       String
+  severity          DamageSeverity @default(LEVE)
+  status            DamageStatus   @default(ABERTA)
+  createdByUserId   String
+  reviewedByAdminId String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  vehicle    Vehicle    @relation(fields: [vehicleId], references: [id])
+  caution    Caution?   @relation(fields: [cautionId], references: [id])
+  checklist  Checklist? @relation(fields: [checklistId], references: [id])
+  createdBy  User       @relation("DamageCreator", fields: [createdByUserId], references: [id])
+  reviewedBy User?      @relation("DamageReviewer", fields: [reviewedByAdminId], references: [id])
+
+  @@index([vehicleId])
+  @@index([status])
+  @@map("damage_reports")
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  actorUserId String?
+  actorRole   UserRole?
+  action      AuditAction
+  entityType  String?
+  entityId    String?
+  metadata    Json? // dados não sensíveis (nunca CPF/senha/token)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model EmailLog {
+  id                String        @id @default(cuid())
+  to                String
+  subject           String
+  template          EmailTemplate
+  status            EmailStatus   @default(PENDING)
+  provider          String?
+  providerMessageId String?
+  errorMessage      String?
+  attempts          Int           @default(0)
+  relatedEntityType String?
+  relatedEntityId   String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([status])
+  @@index([template])
+  @@map("email_logs")
+}
+
+model Notification {
+  id                String           @id @default(cuid())
+  userId            String
+  title             String
+  message           String
+  type              NotificationType @default(GENERAL)
+  readAt            DateTime?
+  relatedEntityType String?
+  relatedEntityId   String?
+  createdAt         DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ============================ CATÁLOGOS ======================================
+// Listas gerenciáveis que alimentam dropdowns e seed. Registros guardam o
+// valor textual escolhido para preservar histórico e suportar "Outro".
+
+model CautionReason {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("caution_reasons")
+}
+
+model OrganizationalUnit {
+  id        String   @id @default(cuid())
+  name      String   @unique // lotação / setor
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizational_units")
+}
+
+model ParkingLocation {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("parking_locations")
+}
+
+// Template dos itens de checklist; instanciado em ChecklistItem por cautela.
+// `category` nulo = aplica-se a todas as categorias de veículo.
+model ChecklistItemTemplate {
+  id                   String           @id @default(cuid())
+  itemKey              String           @unique
+  label                String
+  group                String? // agrupamento visual (ex.: ILUMINACAO, NIVEIS)
+  category             VehicleCategory? // nulo = todas
+  requiresPhotoOnIssue Boolean          @default(true) // RUIM/AUSENTE exige foto
+  sortOrder            Int              @default(0)
+  active               Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([category])
+  @@map("checklist_item_templates")
+}
