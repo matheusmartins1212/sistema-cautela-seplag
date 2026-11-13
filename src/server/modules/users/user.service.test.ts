@@ -15,7 +15,7 @@ vi.mock("@/server/lib/audit", () => ({ recordAudit: vi.fn() }));
 import { prisma } from "@/server/db/prisma";
 import { revokeAllSessions } from "@/server/modules/auth/session";
 import { recordAudit } from "@/server/lib/audit";
-import { setUserStatus, changeUserRole } from "./user.service";
+import { setUserStatus, changeUserRole, listUsers } from "./user.service";
 
 type Role = "USER" | "ADMIN" | "SUPER_ADMIN";
 
@@ -125,5 +125,30 @@ describe("changeUserRole", () => {
     await changeUserRole("u-target", { role: "ADMIN" }, actorOf("boss", "SUPER_ADMIN"));
 
     expect(vi.mocked(recordAudit).mock.calls[0]?.[0]?.action).toBe("USER_ROLE_CHANGED");
+  });
+});
+
+describe("listUsers", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
+  });
+
+  function lastWhere() {
+    return vi.mocked(prisma.user.count).mock.calls[0]?.[0]?.where as {
+      OR: Array<Record<string, { contains: string }>>;
+    };
+  }
+
+  it("busca por nome não envia filtro de CPF nem caracteres nulos ao banco", async () => {
+    await listUsers({ search: "Ana Paula", page: 1, pageSize: 20 } as never);
+    const where = lastWhere();
+    expect(where.OR.some((c) => "cpf" in c)).toBe(false);
+    expect(JSON.stringify(where)).not.toContain("\\u0000");
+  });
+
+  it("busca com dígitos inclui o CPF só com os números", async () => {
+    await listUsers({ search: "529.982", page: 1, pageSize: 20 } as never);
+    expect(lastWhere().OR).toContainEqual({ cpf: { contains: "529982" } });
   });
 });
