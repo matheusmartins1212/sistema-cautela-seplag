@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { getUserDashboard } from "@/server/modules/dashboard/dashboard.service";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
+import { formatPlate } from "@/shared/validation/plate";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function PainelPage() {
                       {c.publicCode}
                     </span>
                     <p className="truncate text-sm text-gray-800">
-                      {c.vehicle.brand} {c.vehicle.model} · {c.vehicle.plate}
+                      {c.vehicle.brand} {c.vehicle.model} · {formatPlate(c.vehicle.plate)}
                     </p>
                   </div>
                   <CautionStatusBadge status={c.status} />

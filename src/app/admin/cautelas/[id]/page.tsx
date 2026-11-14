@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { VehicleStatus } from "@prisma/client";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import {
@@ -14,6 +15,7 @@ import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { CancelCautionButton } from "@/components/cautions/cancel-caution-button";
 import { ChecklistStatusBadge } from "@/components/checklists/checklist-status-badge";
 import { CHECKLIST_TYPE_LABEL } from "@/components/checklists/labels";
+import { VEHICLE_STATUS_LABEL } from "@/components/vehicles/labels";
 import { formatInstantBr } from "@/shared/time";
 
 interface Props {
@@ -108,7 +110,10 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <Row label="Marca / Modelo" value={`${c.vehicle.brand} ${c.vehicle.model}`} />
             <Row label="Placa" value={c.vehicle.plateFormatted} />
-            <Row label="Status atual" value={c.vehicle.currentStatus} />
+            <Row
+              label="Status atual"
+              value={VEHICLE_STATUS_LABEL[c.vehicle.currentStatus as VehicleStatus]}
+            />
           </dl>
           <div className="mt-4">
             <Link

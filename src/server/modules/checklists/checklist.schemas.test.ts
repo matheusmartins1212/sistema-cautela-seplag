@@ -90,11 +90,21 @@ describe("reviewChecklistSchema", () => {
   it("aceita APPROVE", () => {
     expect(reviewChecklistSchema.safeParse({ decision: "APPROVE" }).success).toBe(true);
   });
-  it("aceita REQUEST_RECTIFICATION", () => {
+  it("aceita REQUEST_RECTIFICATION com explicação", () => {
+    expect(
+      reviewChecklistSchema.safeParse({
+        decision: "REQUEST_RECTIFICATION",
+        reviewNotes: "Foto do painel ilegível",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("recusa REQUEST_RECTIFICATION sem dizer o que corrigir", () => {
     expect(reviewChecklistSchema.safeParse({ decision: "REQUEST_RECTIFICATION" }).success).toBe(
-      true,
+      false,
     );
   });
+
   it("rejeita decisão arbitrária", () => {
     expect(reviewChecklistSchema.safeParse({ decision: "OUTRA" }).success).toBe(false);
   });

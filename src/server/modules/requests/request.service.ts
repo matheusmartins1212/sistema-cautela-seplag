@@ -33,6 +33,7 @@ import {
   type RejectRequestInput,
 } from "@/server/modules/requests/request.schemas";
 import { toAppWallClock } from "@/shared/time";
+import { VEHICLE_STATUS_LABEL } from "@/components/vehicles/labels";
 
 const MAX_PUBLIC_CODE_RETRIES = 5;
 
@@ -294,6 +295,79 @@ export async function cancelMyRequest(
 // Aprovação (admin) — transação atômica que cria a Caution e reserva o veículo
 // ----------------------------------------------------------------------------
 
+/** Cautelas que ocupam o veículo no período planejado. */
+const BLOCKING_CAUTION_STATUSES: readonly CautionStatus[] = [
+  CautionStatus.AGUARDANDO_RETIRADA,
+  CautionStatus.RETIRADA_EM_ANDAMENTO,
+  CautionStatus.EM_USO,
+  CautionStatus.AGUARDANDO_DEVOLUCAO,
+  CautionStatus.DEVOLUCAO_EM_ANALISE,
+  CautionStatus.ATRASADA,
+];
+
+export interface VehicleOptionForRequest {
+  id: string;
+  brand: string;
+  model: string;
+  plate: string;
+  category: Vehicle["category"];
+  currentStatus: VehicleStatus;
+  /** Código da cautela que ocupa o veículo no período pedido, se houver. */
+  conflictCode: string | null;
+}
+
+/**
+ * Veículos que o admin pode escolher ao aprovar uma solicitação: os
+ * disponíveis e também os que estão em ciclo de cautela, porque uma reserva
+ * para outra data não impede a aprovação. Os que têm choque de período vêm
+ * marcados com o código da cautela que os ocupa.
+ */
+export async function listVehicleOptionsForRequest(
+  requestId: string,
+): Promise<VehicleOptionForRequest[]> {
+  const req = await prisma.vehicleRequest.findUnique({ where: { id: requestId } });
+  ensureRequestFound(req);
+  const start = combineDateTime(req!.withdrawalDate, req!.withdrawalTime);
+  const end = combineDateTime(req!.returnDate, req!.returnTime);
+
+  const vehicles = await prisma.vehicle.findMany({
+    where: {
+      deletedAt: null,
+      active: true,
+      currentStatus: {
+        in: [
+          VehicleStatus.DISPONIVEL,
+          ...Object.values(VehicleStatus).filter((st) => isWorkflowStatus(st)),
+        ],
+      },
+    },
+    orderBy: [{ model: "asc" }],
+    include: {
+      cautions: {
+        where: { status: { in: [...BLOCKING_CAUTION_STATUSES] } },
+        select: { publicCode: true, plannedWithdrawalAt: true, plannedReturnAt: true },
+      },
+    },
+  });
+
+  return vehicles
+    .map((v) => {
+      const conflict = v.cautions.find((c) =>
+        hasDateRangeConflict(start, end, c.plannedWithdrawalAt, c.plannedReturnAt),
+      );
+      return {
+        id: v.id,
+        brand: v.brand,
+        model: v.model,
+        plate: v.plate,
+        category: v.category,
+        currentStatus: v.currentStatus,
+        conflictCode: conflict?.publicCode ?? null,
+      };
+    })
+    .sort((a, b) => Number(a.conflictCode !== null) - Number(b.conflictCode !== null));
+}
+
 function hasDateRangeConflict(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
   // Sobreposição se aStart < bEnd && bStart < aEnd.
   return aStart < bEnd && bStart < aEnd;
@@ -346,7 +420,9 @@ export async function approveRequest(
     vehicle.currentStatus !== VehicleStatus.DISPONIVEL &&
     !isWorkflowStatus(vehicle.currentStatus)
   ) {
-    throw Errors.conflict(`Veículo não está disponível (status atual: ${vehicle.currentStatus}).`);
+    throw Errors.conflict(
+      `Veículo não está disponível (situação atual: ${VEHICLE_STATUS_LABEL[vehicle.currentStatus].toLowerCase()}).`,
+    );
   }
 
   const newPeriodStart = combineDateTime(req!.withdrawalDate, req!.withdrawalTime);
@@ -356,16 +432,7 @@ export async function approveRequest(
   const overlapping = await prisma.caution.findMany({
     where: {
       vehicleId: vehicle.id,
-      status: {
-        in: [
-          CautionStatus.AGUARDANDO_RETIRADA,
-          CautionStatus.RETIRADA_EM_ANDAMENTO,
-          CautionStatus.EM_USO,
-          CautionStatus.AGUARDANDO_DEVOLUCAO,
-          CautionStatus.DEVOLUCAO_EM_ANALISE,
-          CautionStatus.ATRASADA,
-        ],
-      },
+      status: { in: [...BLOCKING_CAUTION_STATUSES] },
     },
     select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true },
   });

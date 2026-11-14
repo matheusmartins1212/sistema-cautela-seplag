@@ -25,7 +25,7 @@ import {
   FUEL_LEVEL_LABEL,
   ITEM_GROUP_LABEL,
 } from "./labels";
-import { toAppWallClock } from "@/shared/time";
+import { formatIsoDateBr, toAppWallClock } from "@/shared/time";
 
 interface Props {
   cautionId: string;
@@ -36,6 +36,7 @@ interface Props {
 type Step = 0 | 1 | 2 | 3;
 
 interface ItemDraft {
+  id: string;
   itemKey: string;
   itemLabel: string;
   category: string | null;
@@ -98,6 +99,7 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
 
   const [items, setItems] = useState<ItemDraft[]>(
     checklist.items.map((i) => ({
+      id: i.id,
       itemKey: i.itemKey,
       itemLabel: i.itemLabel,
       category: i.category,
@@ -219,6 +221,12 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
     setLoading(false);
     if (!r.ok) {
       setError(r.error.message);
+      // Leva a pessoa direto à etapa onde está o que precisa corrigir.
+      const fields = r.error.fieldErrors ?? {};
+      if (fields.mileage) setStep(0);
+      else if (fields.items) setStep(1);
+      else if (fields.damage) setStep(2);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     router.push(`/cautelas/${cautionId}`);
@@ -390,7 +398,9 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
                               checklistId={checklist.id}
                               defaultType="ITEM"
                               itemKey={it.itemKey}
+                              checklistItemId={it.id}
                               itemScope
+                              required
                               label="Fotos do item"
                             />
                           </div>
@@ -479,12 +489,21 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
 
           <CheckboxRow label="Há avaria a registrar?" checked={hasDamage} onChange={setHasDamage} />
           {hasDamage && (
-            <Textarea
-              label="Descreva a avaria"
-              value={damageDescription}
-              onChange={(e) => setDamageDescription(e.target.value)}
-              rows={3}
-            />
+            <div className="space-y-3 rounded-md border border-danger/30 bg-danger/5 p-3">
+              <Textarea
+                label="Descreva a avaria"
+                value={damageDescription}
+                onChange={(e) => setDamageDescription(e.target.value)}
+                rows={3}
+                required
+              />
+              <PhotoUploader
+                checklistId={checklist.id}
+                defaultType="AVARIA"
+                label="Fotos da avaria"
+                required
+              />
+            </div>
           )}
 
           <Textarea
@@ -497,7 +516,7 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
           <NavButtons
             onPrev={() => setStep(1)}
             onNext={() => persistDraftAndAdvance(3)}
-            disabled={loading}
+            disabled={loading || (hasDamage && damageDescription.trim().length === 0)}
             loading={loading}
             nextLabel="Revisar e enviar"
           />
@@ -511,17 +530,21 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
           </h2>
           <p className="text-sm text-gray-700">
             Você está prestes a enviar o checklist de <strong>{CHECKLIST_TYPE_LABEL[type]}</strong>.
-            Após o envio, o checklist <strong>não poderá mais ser editado</strong> por você.
+            Depois de enviado, ele <strong>só volta a ser editável</strong> se a administração pedir
+            alguma correção.
           </p>
           <ul className="space-y-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
             <li>
               Data/hora:{" "}
               <strong>
-                {realDate} {realTime}
+                {formatIsoDateBr(realDate)} {realTime}
               </strong>
             </li>
             <li>
-              Quilometragem: <strong>{mileage}</strong>
+              Quilometragem:{" "}
+              <strong>
+                {mileage === "" ? "" : `${Number(mileage).toLocaleString("pt-BR")} km`}
+              </strong>
             </li>
             <li>
               Combustível: <strong>{fuelLevel && FUEL_LEVEL_LABEL[fuelLevel as FuelLevel]}</strong>
@@ -550,9 +573,13 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
 function StepIndicator({ step }: { step: Step }) {
   const labels = ["Dados", "Itens", "Observações", "Confirmar"];
   return (
-    <ol className="flex items-center gap-2 text-xs">
+    <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       {labels.map((label, idx) => (
-        <li key={label} className="flex items-center gap-2">
+        <li
+          key={label}
+          className="flex items-center gap-2"
+          aria-current={idx === step ? "step" : undefined}
+        >
           <span
             className={
               idx === step
@@ -564,7 +591,14 @@ function StepIndicator({ step }: { step: Step }) {
           >
             {idx + 1}
           </span>
-          <span className={idx === step ? "font-semibold text-institutional-900" : "text-gray-500"}>
+          {/* No celular só a etapa atual mostra o nome, para caber na largura. */}
+          <span
+            className={
+              idx === step
+                ? "font-semibold text-institutional-900"
+                : "hidden text-gray-500 sm:inline"
+            }
+          >
             {label}
           </span>
           {idx < labels.length - 1 && (

@@ -1,6 +1,7 @@
 import {
   CautionStatus,
   ChecklistStatus,
+  DamageStatus,
   ChecklistType,
   VehicleStatus,
   type Caution,
@@ -353,17 +354,41 @@ export async function submitChecklist(
     }
   }
   if (missingItemPhotos.length > 0) {
-    throw Errors.validation("Itens RUIM/AUSENTE exigem foto.", {
-      items: missingItemPhotos.map((l) => `Anexe a foto do item "${l}".`),
+    throw Errors.validation(
+      `Itens marcados como Ruim ou Ausente precisam de foto: ${missingItemPhotos.join(", ")}.`,
+      { items: missingItemPhotos.map((l) => `Anexe a foto do item "${l}".`) },
+    );
+  }
+  if (input.hasDamage && !(input.damageDescription ?? "").trim()) {
+    throw Errors.validation("Descreva a avaria antes de enviar.", {
+      damage: ["Descreva a avaria."],
     });
   }
   if (input.hasDamage && !photos.some((p) => p.type === "AVARIA")) {
-    throw Errors.validation("Avaria exige foto.", {
+    throw Errors.validation("Anexe ao menos uma foto da avaria antes de enviar.", {
       damage: ["Anexe ao menos uma foto da avaria."],
     });
   }
 
+  // Na devolução, o hodômetro não pode marcar menos do que marcava na retirada.
+  if (current!.type === ChecklistType.DEVOLUCAO) {
+    const withdrawal = await prisma.checklist.findFirst({
+      where: { cautionId: current!.cautionId, type: ChecklistType.RETIRADA },
+      select: { mileage: true },
+    });
+    if (withdrawal?.mileage != null && input.mileage < withdrawal.mileage) {
+      const fmt = (n: number) => n.toLocaleString("pt-BR");
+      throw Errors.validation(
+        `A quilometragem de devolução (${fmt(input.mileage)} km) é menor que a da retirada (${fmt(
+          withdrawal.mileage,
+        )} km). Confira o hodômetro.`,
+        { mileage: ["Quilometragem menor que a da retirada."] },
+      );
+    }
+  }
+
   const now = new Date();
+  let damageReportId: string | null = null;
 
   const result = await prisma.$transaction(async (tx) => {
     // Atualiza o checklist (campos + status ENVIADO + submittedAt + confirm).
@@ -399,6 +424,29 @@ export async function submitChecklist(
         where: { checklistId: id, itemKey: it.itemKey },
         data: { answer: it.answer, observation: it.observation ?? null },
       });
+    }
+
+    // Avaria declarada vira um registro em Avarias, para a administração
+    // acompanhar. No reenvio após correção, atualiza o registro existente.
+    if (input.hasDamage && input.damageDescription) {
+      const existing = await tx.damageReport.findFirst({ where: { checklistId: id } });
+      if (!existing) {
+        const created = await tx.damageReport.create({
+          data: {
+            vehicleId: current!.vehicleId,
+            cautionId: current!.cautionId,
+            checklistId: id,
+            description: input.damageDescription,
+            createdByUserId: actor.user.id,
+          },
+        });
+        damageReportId = created.id;
+      } else if (existing.status === DamageStatus.ABERTA) {
+        await tx.damageReport.update({
+          where: { id: existing.id },
+          data: { description: input.damageDescription },
+        });
+      }
     }
 
     // Transições de status — só ocorrem em RETIRADA→EM_USO e DEVOLUCAO→EM_ANALISE.
@@ -467,6 +515,7 @@ export async function submitChecklist(
       fuelLevel: input.fuelLevel,
       hasDamage: input.hasDamage ?? false,
       resubmission: current!.status === ChecklistStatus.RETIFICADO,
+      damageReportId,
       returnedLate:
         current!.type === ChecklistType.DEVOLUCAO &&
         (current as Checklist & { caution: Caution }).caution.status === CautionStatus.ATRASADA,
@@ -493,7 +542,9 @@ export async function reviewChecklist(
   });
   ensureFound(current);
   if (current!.status !== ChecklistStatus.ENVIADO) {
-    throw Errors.conflict("Apenas checklists com status ENVIADO podem ser revisados.");
+    throw Errors.conflict(
+      "Este checklist não está aguardando análise. Atualize a página para ver a situação atual.",
+    );
   }
 
   const newStatus =
@@ -505,10 +556,8 @@ export async function reviewChecklist(
       where: { id },
       data: {
         status: newStatus,
-        generalNotes:
-          input.reviewNotes && current!.generalNotes
-            ? `${current!.generalNotes}\n\n[Revisão] ${input.reviewNotes}`
-            : (input.reviewNotes ?? current!.generalNotes),
+        // A observação do admin fica na auditoria (ver getChecklistReviews),
+        // separada das observações escritas pelo servidor.
         reviewedAt: now,
         reviewedByAdminId: actor.user.id,
       },
@@ -548,6 +597,7 @@ export async function reviewChecklist(
       decision: input.decision,
       type: current!.type,
       cautionId: current!.cautionId,
+      reviewNotes: input.reviewNotes ?? null,
     },
     context,
   });
@@ -580,3 +630,47 @@ export async function reviewChecklist(
 }
 
 export type { ChecklistWithItems };
+
+// ----------------------------------------------------------------------------
+// Histórico de revisões (observações do admin)
+// ----------------------------------------------------------------------------
+
+export interface ChecklistReview {
+  id: string;
+  decision: "APPROVE" | "REQUEST_RECTIFICATION";
+  notes: string | null;
+  reviewerName: string | null;
+  createdAt: Date;
+}
+
+/** Revisões do checklist, da mais recente para a mais antiga. */
+export async function getChecklistReviews(checklistId: string): Promise<ChecklistReview[]> {
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      entityType: "Checklist",
+      entityId: checklistId,
+      action: { in: ["CHECKLIST_REVIEWED", "CHECKLIST_RECTIFIED"] },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  const ids = [...new Set(logs.map((l) => l.actorUserId).filter(Boolean))] as string[];
+  const users = ids.length
+    ? await prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, fullName: true },
+      })
+    : [];
+  const names = new Map(users.map((u) => [u.id, u.fullName]));
+  return logs.map((log) => {
+    const meta = (log.metadata ?? {}) as { reviewNotes?: unknown };
+    return {
+      id: log.id,
+      decision: log.action === "CHECKLIST_REVIEWED" ? "APPROVE" : "REQUEST_RECTIFICATION",
+      notes:
+        typeof meta.reviewNotes === "string" && meta.reviewNotes.trim() ? meta.reviewNotes : null,
+      reviewerName: log.actorUserId ? (names.get(log.actorUserId) ?? null) : null,
+      createdAt: log.createdAt,
+    };
+  });
+}

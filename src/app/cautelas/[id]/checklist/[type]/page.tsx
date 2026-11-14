@@ -4,7 +4,10 @@ import { ChecklistType } from "@prisma/client";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { Errors } from "@/server/lib/errors";
 import { checklistTypeParamSchema } from "@/server/modules/checklists/checklist.schemas";
-import { getOrInitChecklistForCaution } from "@/server/modules/checklists/checklist.service";
+import {
+  getChecklistReviews,
+  getOrInitChecklistForCaution,
+} from "@/server/modules/checklists/checklist.service";
 import { toPublicChecklist } from "@/server/modules/checklists/checklist.dto";
 import { ChecklistWizard } from "@/components/checklists/checklist-wizard";
 import { ChecklistStatusBadge } from "@/components/checklists/checklist-status-badge";
@@ -41,7 +44,7 @@ export default async function CautelaChecklistPage({ params }: Props) {
     ) {
       return (
         <div className="space-y-6">
-          <BackHeader cautionId={id} type={type} />
+          <BackHeader cautionId={id} />
           <div className="rounded-card border border-warning/30 bg-warning/5 p-4 text-sm text-gray-800">
             {(error as { message: string }).message}
           </div>
@@ -56,10 +59,16 @@ export default async function CautelaChecklistPage({ params }: Props) {
     checklist.status === "PENDENTE" ||
     checklist.status === "EM_PREENCHIMENTO" ||
     checklist.status === "RETIFICADO";
+  const correction =
+    checklist.status === "RETIFICADO"
+      ? (await getChecklistReviews(checklist.id)).find(
+          (r) => r.decision === "REQUEST_RECTIFICATION",
+        )
+      : undefined;
 
   return (
     <div className="space-y-6">
-      <BackHeader cautionId={id} type={type} />
+      <BackHeader cautionId={id} />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-institutional-900">
           Checklist de {CHECKLIST_TYPE_LABEL[type as ChecklistType]}
@@ -69,9 +78,20 @@ export default async function CautelaChecklistPage({ params }: Props) {
 
       {!editable && (
         <div className="rounded-card border border-gray-200 bg-white p-4 text-sm text-gray-700 shadow-card">
-          Este checklist está com status <strong>{CHECKLIST_STATUS_LABEL[checklist.status]}</strong>
-          . Não pode mais ser preenchido por você. Aguarde a análise administrativa ou abra um novo
-          se foi solicitada retificação.
+          Este checklist já foi enviado e está como{" "}
+          <strong>{CHECKLIST_STATUS_LABEL[checklist.status]}</strong>. Agora ele está com a
+          administração. Se for pedida alguma correção, você recebe um aviso e poderá editá-lo de
+          novo por aqui.
+        </div>
+      )}
+
+      {correction && (
+        <div className="rounded-card border border-warning/40 bg-warning/5 p-4 text-sm text-gray-800">
+          <p className="font-semibold text-gray-900">A administração pediu uma correção</p>
+          {correction.notes && <p className="mt-1 whitespace-pre-line">{correction.notes}</p>}
+          <p className="mt-2 text-gray-600">
+            Ajuste o que for preciso e envie o checklist de novo.
+          </p>
         </div>
       )}
 
@@ -82,16 +102,15 @@ export default async function CautelaChecklistPage({ params }: Props) {
   );
 }
 
-function BackHeader({ cautionId, type }: { cautionId: string; type: string }) {
+function BackHeader({ cautionId }: { cautionId: string }) {
   return (
     <div>
       <Link
         href={`/cautelas/${cautionId}`}
         className="text-sm text-institutional-700 hover:underline"
       >
-        ← Cautela
+        ← Voltar para a cautela
       </Link>
-      <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">{type}</p>
     </div>
   );
 }

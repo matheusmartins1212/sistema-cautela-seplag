@@ -94,8 +94,8 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card">
+        <table className="w-full min-w-[46rem] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
             <tr>
               <th className="px-4 py-3">Código</th>

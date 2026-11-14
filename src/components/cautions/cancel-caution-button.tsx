@@ -82,12 +82,12 @@ export function CancelCautionButton({
           <div className="space-y-3">
             {vehicleOut ? (
               <p>
-                O veículo <strong>já foi retirado</strong>. Ao cancelar, ele volta para DISPONÍVEL e
-                pode ser reservado de novo, então confirme que ele já está no pátio.
+                O veículo <strong>já foi retirado</strong>. Ao cancelar, ele fica livre para novas
+                cautelas no sistema, então confirme antes que ele já voltou ao pátio.
               </p>
             ) : (
               <p>
-                O veículo é <strong>liberado</strong> de volta para DISPONÍVEL.
+                A reserva é desfeita e o veículo fica <strong>livre</strong> para outras cautelas.
               </p>
             )}
             <p>O solicitante é avisado e a ação fica registrada na auditoria.</p>

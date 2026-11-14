@@ -18,7 +18,9 @@ interface Props {
   checklistId: string;
   defaultType?: PhotoType;
   itemKey?: string;
-  /** Quando true, mostra apenas as fotos vinculadas ao item (filtra por itemKey). */
+  /** Id do item do checklist; usado para mostrar só as fotos daquele item. */
+  checklistItemId?: string;
+  /** Quando true, mostra apenas as fotos vinculadas ao item. */
   itemScope?: boolean;
   /** Marca este uploader como obrigatório (mostra label vermelho quando vazio). */
   required?: boolean;
@@ -32,6 +34,7 @@ export function PhotoUploader({
   checklistId,
   defaultType,
   itemKey,
+  checklistItemId,
   itemScope,
   required,
   label,
@@ -59,9 +62,11 @@ export function PhotoUploader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checklistId]);
 
+  // Cada campo mostra só as próprias fotos: as de um item ficam no item, e as
+  // gerais (dianteira, painel, avaria...) ficam no campo do seu tipo.
   const visible = (photos ?? []).filter((p) => {
-    if (!itemScope) return !itemKey || p.checklistItemId !== null;
-    return p.checklistItemId !== null;
+    if (itemScope) return checklistItemId ? p.checklistItemId === checklistItemId : false;
+    return p.checklistItemId === null && p.type === (defaultType ?? "OUTRA");
   });
 
   async function onUpload(files: FileList | null) {

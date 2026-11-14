@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCautionStats, getDamagesByVehicle } from "@/server/modules/reports/reports.service";
 import { reportRangeSchema, toDateRange } from "@/server/modules/reports/reports.schemas";
+import { formatPlate } from "@/shared/validation/plate";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function AdminRelatoriosPage({ searchParams }: Props) {
         subtitle="Cautelas por veículo (mais utilizados primeiro)."
         exportHref={exportHref("vehicle-usage")}
         columns={["Veículo", "Placa", "Cautelas"]}
-        rows={vehicleUsage.map((r) => [r.label, r.plate, String(r.count)])}
+        rows={vehicleUsage.map((r) => [r.label, formatPlate(r.plate), String(r.count)])}
         emptyLabel="Sem cautelas no período."
       />
 
@@ -105,7 +106,7 @@ export default async function AdminRelatoriosPage({ searchParams }: Props) {
         subtitle="Quantidade de avarias registradas por veículo."
         exportHref={exportHref("damages")}
         columns={["Placa", "Avarias"]}
-        rows={damages.map((r) => [r.plate, String(r.count)])}
+        rows={damages.map((r) => [formatPlate(r.plate), String(r.count)])}
         emptyLabel="Sem avarias no período."
       />
     </div>

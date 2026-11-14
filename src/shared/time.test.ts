@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatInstantBr, toAppWallClock } from "./time";
+import { formatInstantBr, formatIsoDateBr, formatWallClockBr, toAppWallClock } from "./time";
 
 describe("toAppWallClock", () => {
   it("converte um instante real para a hora de parede de Cuiabá (UTC-4)", () => {
@@ -24,5 +24,18 @@ describe("toAppWallClock", () => {
 describe("formatInstantBr", () => {
   it("exibe o instante no horário de Cuiabá", () => {
     expect(formatInstantBr("2026-11-13T22:46:00Z")).toBe("13/11/2026 18:46");
+  });
+});
+
+describe("formatWallClockBr", () => {
+  it("exibe o horário agendado sem converter fuso", () => {
+    expect(formatWallClockBr("2026-11-13T08:05:00Z")).toBe("13/11/2026 08:05");
+  });
+});
+
+describe("formatIsoDateBr", () => {
+  it("converte data ISO para o formato brasileiro", () => {
+    expect(formatIsoDateBr("2026-11-13")).toBe("13/11/2026");
+    expect(formatIsoDateBr(null)).toBe("");
   });
 });

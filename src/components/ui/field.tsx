@@ -19,7 +19,11 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(
       <div className="space-y-1.5">
         <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
           {label}
-          {required && <span className="ml-0.5 text-danger">*</span>}
+          {required && (
+            <span aria-hidden="true" className="ml-0.5 text-danger">
+              *
+            </span>
+          )}
         </label>
         <input
           ref={ref}

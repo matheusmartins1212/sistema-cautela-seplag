@@ -12,7 +12,10 @@ import { apiPost } from "@/lib/api-client";
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") ?? "/painel";
+  // Só aceita caminhos internos, para o link de login não virar um redirecionamento
+  // para fora do sistema.
+  const rawNext = params.get("next");
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,14 +28,16 @@ function LoginForm() {
     setNeedsConfirmation(false);
 
     const form = new FormData(e.currentTarget);
-    const result = await apiPost("/api/auth/login", {
+    const result = await apiPost<{ user: { role: string } }>("/api/auth/login", {
       email: form.get("email"),
       password: form.get("password"),
     });
 
     setLoading(false);
     if (result.ok) {
-      router.push(next);
+      const isAdminRole =
+        result.data.user.role === "ADMIN" || result.data.user.role === "SUPER_ADMIN";
+      router.push(next ?? (isAdminRole ? "/admin" : "/painel"));
       router.refresh();
       return;
     }

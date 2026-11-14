@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import brasao from "@/assets/brasao-mt.png";
@@ -26,6 +26,26 @@ function isActive(pathname: string, item: NavItem): boolean {
 export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", children }: Props) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Fecha o menu do celular ao trocar de página (inclusive pelo botão voltar).
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  // Com o menu aberto: Esc fecha e a página de fundo não rola.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [drawerOpen]);
 
   const navList = (
     <nav className="flex flex-col gap-1 p-3">
@@ -60,21 +80,26 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
 
   return (
     <div className="min-h-screen bg-gray-50 lg:flex">
-      {/* Sidebar — desktop */}
-      <aside className="hidden w-64 shrink-0 flex-col bg-institutional-900 lg:flex">
+      {/* Menu lateral no computador: fica fixo enquanto a página rola */}
+      <aside className="hidden w-64 shrink-0 flex-col bg-institutional-900 lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:overflow-y-auto">
         {brand}
         {navList}
       </aside>
 
-      {/* Drawer — mobile */}
+      {/* Menu no celular */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+        >
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setDrawerOpen(false)}
             aria-hidden="true"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-institutional-900 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col overflow-y-auto bg-institutional-900 shadow-xl">
             {brand}
             {navList}
           </aside>
@@ -89,6 +114,7 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Abrir menu"
+              aria-expanded={drawerOpen}
               className="rounded-md p-2 hover:bg-institutional-700 lg:hidden"
             >
               <MenuIcon />

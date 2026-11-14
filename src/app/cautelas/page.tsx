@@ -84,8 +84,56 @@ export default async function MinhasCautelasPage({ searchParams }: Props) {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full text-sm">
+      {/* Celular: cartões tocáveis. Telas maiores: tabela. */}
+      <ul className="space-y-3 sm:hidden">
+        {items.length === 0 && (
+          <li className="rounded-card border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 shadow-card">
+            Você ainda não possui cautelas vinculadas.{" "}
+            <Link
+              href="/solicitacoes/nova"
+              className="font-medium text-institutional-700 hover:underline"
+            >
+              Criar uma solicitação
+            </Link>
+            .
+          </li>
+        )}
+        {items.map((c) => {
+          const cau = toPublicCaution(c, { includeRequest: true, includeVehicle: true });
+          return (
+            <li key={cau.id}>
+              <Link
+                href={`/cautelas/${cau.id}`}
+                className="block rounded-card border border-gray-200 bg-white p-4 shadow-card active:bg-gray-50"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="break-all font-mono text-xs font-semibold text-institutional-900">
+                    {cau.publicCode}
+                  </span>
+                  <span className="shrink-0">
+                    <CautionStatusBadge status={cau.status} />
+                  </span>
+                </div>
+                {cau.vehicle && (
+                  <p className="mt-2 text-sm font-medium text-gray-900">
+                    {cau.vehicle.brand} {cau.vehicle.model}{" "}
+                    <span className="font-mono text-xs font-normal text-gray-500">
+                      · {cau.vehicle.plateFormatted}
+                    </span>
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-600">
+                  {formatDateTimeBr(cau.plannedWithdrawalAt)} até{" "}
+                  {formatDateTimeBr(cau.plannedReturnAt)}
+                </p>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card sm:block">
+        <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
             <tr>
               <th className="px-4 py-3">Código</th>

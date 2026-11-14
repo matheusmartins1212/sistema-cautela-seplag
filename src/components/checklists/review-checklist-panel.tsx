@@ -47,7 +47,7 @@ export function ReviewChecklistPanel({ checklistId }: Props) {
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setMode("approve")}>Aprovar checklist</Button>
         <Button variant="secondary" onClick={() => setMode("rectify")}>
-          Solicitar retificação
+          Pedir correção
         </Button>
       </div>
     );
@@ -63,14 +63,16 @@ export function ReviewChecklistPanel({ checklistId }: Props) {
     >
       <p className="text-sm font-medium text-gray-800">
         {mode === "approve"
-          ? "Aprovar este checklist. Se for o checklist de devolução, a cautela será finalizada e o veículo voltará a DISPONIVEL."
-          : "Solicitar retificação do checklist. O usuário poderá ajustar e reenviar."}
+          ? "Aprovar este checklist. Se for o de devolução, a cautela é finalizada e o veículo fica livre para novas cautelas."
+          : "Pedir correção ao servidor. Ele recebe um aviso, ajusta o checklist e envia de novo."}
       </p>
       <Textarea
-        label="Observação (opcional)"
+        label={mode === "approve" ? "Observação (opcional)" : "O que precisa ser corrigido"}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         rows={2}
+        required={mode === "rectify"}
+        hint={mode === "rectify" ? "O servidor verá este texto ao abrir o checklist." : undefined}
       />
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex justify-end gap-2">
@@ -79,6 +81,7 @@ export function ReviewChecklistPanel({ checklistId }: Props) {
         </Button>
         <Button
           loading={loading}
+          disabled={mode === "rectify" && notes.trim().length < 3}
           onClick={() => submit(mode === "approve" ? "APPROVE" : "REQUEST_RECTIFICATION")}
         >
           Confirmar

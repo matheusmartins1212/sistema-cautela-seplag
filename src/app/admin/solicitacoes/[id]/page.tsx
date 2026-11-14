@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { VehicleStatus } from "@prisma/client";
 import { getCurrentSession } from "@/server/modules/auth/session";
-import { getRequestById } from "@/server/modules/requests/request.service";
+import {
+  getRequestById,
+  listVehicleOptionsForRequest,
+} from "@/server/modules/requests/request.service";
 import { toPublicRequest } from "@/server/modules/requests/request.dto";
-import { listVehicles } from "@/server/modules/vehicles/vehicle.service";
 import { Errors } from "@/server/lib/errors";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import { RequestStatusBadge } from "@/components/requests/request-status-badge";
@@ -42,18 +43,10 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
   }
   const r = toPublicRequest(reqRaw, { includeUser: true, includeCaution: true });
 
-  // Carregar veículos DISPONÍVEIS apenas se a solicitação ainda estiver em análise
-  // (para evitar carga desnecessária no banco em outros estados).
+  // Opções de veículo só interessam enquanto a solicitação está em análise.
   const availableVehicles =
     r.status === "PENDENTE_ANALISE"
-      ? (
-          await listVehicles({
-            status: VehicleStatus.DISPONIVEL,
-            active: true,
-            page: 1,
-            pageSize: 100,
-          })
-        ).items.map((v) => ({
+      ? (await listVehicleOptionsForRequest(r.id)).map((v) => ({
           id: v.id,
           brand: v.brand,
           model: v.model,
@@ -61,6 +54,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
           plateFormatted: formatPlate(v.plate),
           category: v.category,
           currentStatus: v.currentStatus,
+          conflictCode: v.conflictCode,
         }))
       : [];
 

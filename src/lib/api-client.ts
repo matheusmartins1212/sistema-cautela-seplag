@@ -15,6 +15,10 @@ export async function apiPost<T = unknown>(path: string, body?: unknown): Promis
   return request<T>(path, "POST", body);
 }
 
+export async function apiPatch<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>> {
+  return request<T>(path, "PATCH", body);
+}
+
 export async function apiGet<T = unknown>(path: string): Promise<ApiResult<T>> {
   return request<T>(path, "GET");
 }

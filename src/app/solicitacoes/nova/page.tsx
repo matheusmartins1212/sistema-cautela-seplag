@@ -20,8 +20,8 @@ export default async function NovaSolicitacaoPage() {
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           Seus dados funcionais (nome, CPF, matrícula, setor) são puxados automaticamente da sua
-          conta. Após o envio, a SATGF/SEPLAG analisará a solicitação e, se aprovada,
-          definirá o veículo a ser liberado.
+          conta. Após o envio, a SATGF/SEPLAG analisará a solicitação e, se aprovada, definirá o
+          veículo a ser liberado.
         </p>
       </div>
 

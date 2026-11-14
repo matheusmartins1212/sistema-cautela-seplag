@@ -1,4 +1,4 @@
-import { Prisma, type Vehicle, type VehicleStatus } from "@prisma/client";
+import { Prisma, type CautionStatus, type Vehicle, type VehicleStatus } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { Errors } from "@/server/lib/errors";
 import { recordAudit } from "@/server/lib/audit";
@@ -45,14 +45,14 @@ function buildChangeMetadata<T extends Record<string, unknown>>(
   before: T,
   after: T,
   keys: readonly (keyof T)[],
-): Prisma.InputJsonValue {
+): { changes: Record<string, { from: unknown; to: unknown }> } {
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   for (const key of keys) {
     if (before[key] !== after[key]) {
       changes[String(key)] = { from: before[key] ?? null, to: after[key] ?? null };
     }
   }
-  return { changes } as Prisma.InputJsonValue;
+  return { changes };
 }
 
 // ---------- Operações ------------------------------------------------------
@@ -182,19 +182,24 @@ export async function updateVehicle(
     mapUniqueViolation(error);
   }
 
-  await recordAudit({
-    action: "VEHICLE_UPDATED",
-    actorUserId: actor.user.id,
-    actorRole: actor.user.role,
-    entityType: "Vehicle",
-    entityId: id,
-    metadata: buildChangeMetadata(
-      before as unknown as Record<string, unknown>,
-      updated as unknown as Record<string, unknown>,
-      UPDATABLE_KEYS as readonly string[] as readonly (keyof Record<string, unknown>)[],
-    ),
-    context,
-  });
+  const metadata = buildChangeMetadata(
+    before as unknown as Record<string, unknown>,
+    updated as unknown as Record<string, unknown>,
+    UPDATABLE_KEYS as readonly string[] as readonly (keyof Record<string, unknown>)[],
+  );
+
+  // Salvar o formulário sem mudar nada não deve poluir o histórico.
+  if (Object.keys(metadata.changes).length > 0) {
+    await recordAudit({
+      action: "VEHICLE_UPDATED",
+      actorUserId: actor.user.id,
+      actorRole: actor.user.role,
+      entityType: "Vehicle",
+      entityId: id,
+      metadata: metadata as Prisma.InputJsonValue,
+      context,
+    });
+  }
 
   return updated;
 }
@@ -259,6 +264,7 @@ export interface VehicleHistoryEntry {
   id: string;
   action: string;
   actorUserId: string | null;
+  actorName: string | null;
   metadata: Prisma.JsonValue;
   createdAt: string;
 }
@@ -272,12 +278,59 @@ export async function getVehicleHistory(id: string, limit = 50): Promise<Vehicle
     take: limit,
   });
 
+  const actorIds = [...new Set(logs.map((log) => log.actorUserId).filter(Boolean))] as string[];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: actorIds } },
+        select: { id: true, fullName: true },
+      })
+    : [];
+  const nameById = new Map(actors.map((user) => [user.id, user.fullName]));
+
   return logs.map((log) => ({
     id: log.id,
     action: log.action,
     actorUserId: log.actorUserId,
+    actorName: log.actorUserId ? (nameById.get(log.actorUserId) ?? null) : null,
     metadata: log.metadata,
     createdAt: log.createdAt.toISOString(),
+  }));
+}
+
+export interface VehicleCautionSummary {
+  id: string;
+  publicCode: string;
+  status: CautionStatus;
+  userName: string;
+  plannedWithdrawalAt: Date;
+  plannedReturnAt: Date;
+}
+
+/** Cautelas mais recentes do veículo, para a tela de detalhe do admin. */
+export async function listVehicleCautions(
+  vehicleId: string,
+  limit = 15,
+): Promise<VehicleCautionSummary[]> {
+  const cautions = await prisma.caution.findMany({
+    where: { vehicleId },
+    orderBy: { plannedWithdrawalAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      publicCode: true,
+      status: true,
+      plannedWithdrawalAt: true,
+      plannedReturnAt: true,
+      user: { select: { fullName: true } },
+    },
+  });
+  return cautions.map((caution) => ({
+    id: caution.id,
+    publicCode: caution.publicCode,
+    status: caution.status,
+    userName: caution.user.fullName,
+    plannedWithdrawalAt: caution.plannedWithdrawalAt,
+    plannedReturnAt: caution.plannedReturnAt,
   }));
 }
 

@@ -1,14 +1,19 @@
 import Link from "next/link";
+import type { ChecklistAnswer } from "@prisma/client";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { isAdmin } from "@/server/modules/auth/rbac";
-import { getChecklistById } from "@/server/modules/checklists/checklist.service";
+import {
+  getChecklistById,
+  getChecklistReviews,
+} from "@/server/modules/checklists/checklist.service";
 import { toPublicChecklist } from "@/server/modules/checklists/checklist.dto";
 import {
   compareChecklistsOfCaution,
   hasNotableDivergence,
 } from "@/server/modules/checklists/comparison.service";
 import { Errors } from "@/server/lib/errors";
+import { formatInstantBr, formatIsoDateBr } from "@/shared/time";
 import { ChecklistStatusBadge } from "@/components/checklists/checklist-status-badge";
 import { ReviewChecklistPanel } from "@/components/checklists/review-checklist-panel";
 import { PhotoGallery } from "@/components/checklists/photo-gallery";
@@ -46,7 +51,10 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
   }
   const c = toPublicChecklist(raw);
 
-  const comparison = c.type === "DEVOLUCAO" ? await compareChecklistsOfCaution(c.cautionId) : null;
+  const [comparison, reviews] = await Promise.all([
+    c.type === "DEVOLUCAO" ? compareChecklistsOfCaution(c.cautionId) : Promise.resolve(null),
+    getChecklistReviews(c.id),
+  ]);
   const showDivergencePanel = comparison && hasNotableDivergence(comparison);
 
   const itemsByGroup = c.items.reduce<Record<string, typeof c.items>>((acc, it) => {
@@ -78,7 +86,7 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
           Dados gerais
         </h2>
         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Data" value={c.realDate ?? "—"} />
+          <Row label="Data" value={c.realDate ? formatIsoDateBr(c.realDate) : "—"} />
           <Row label="Horário" value={c.realTime ?? "—"} />
           <Row label="Quilometragem" value={c.mileage != null ? String(c.mileage) : "—"} />
           <Row label="Combustível" value={c.fuelLevel ? FUEL_LEVEL_LABEL[c.fuelLevel] : "—"} />
@@ -165,13 +173,15 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
             )}
             {comparison.mileageInconsistent && (
               <li>
-                🛞 Quilometragem inconsistente — devolução{" "}
-                <strong>{comparison.mileageDelta}</strong> km menor que a retirada.
+                🛞 Quilometragem inconsistente: a devolução marca{" "}
+                <strong>{Math.abs(comparison.mileageDelta ?? 0).toLocaleString("pt-BR")}</strong> km
+                a menos que a retirada.
               </li>
             )}
             {comparison.mileageDelta != null && !comparison.mileageInconsistent && (
               <li>
-                Quilometragem rodada: <strong>{comparison.mileageDelta}</strong> km.
+                Quilometragem rodada:{" "}
+                <strong>{comparison.mileageDelta.toLocaleString("pt-BR")}</strong> km.
               </li>
             )}
             {comparison.damageDeclaredOnReturn && (
@@ -183,7 +193,9 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
                 <ul className="ml-4 mt-1 list-disc text-xs">
                   {comparison.itemsDeteriorated.map((d) => (
                     <li key={d.itemKey}>
-                      <strong>{d.itemLabel}</strong>: {d.before} → {d.after}
+                      <strong>{d.itemLabel}</strong>:{" "}
+                      {d.before ? (ANSWER_LABEL[d.before as ChecklistAnswer] ?? d.before) : "?"} →{" "}
+                      {d.after ? (ANSWER_LABEL[d.after as ChecklistAnswer] ?? d.after) : "?"}
                     </li>
                   ))}
                 </ul>
@@ -197,6 +209,28 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Fotos</h2>
         <PhotoGallery checklistId={c.id} />
       </section>
+
+      {reviews.length > 0 && (
+        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">
+            Revisões
+          </h2>
+          <ul className="space-y-3 text-sm">
+            {reviews.map((r) => (
+              <li key={r.id} className="rounded-md border border-gray-100 bg-gray-50 p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium text-gray-900">
+                    {r.decision === "APPROVE" ? "Aprovado" : "Correção pedida"}
+                    {r.reviewerName ? ` por ${r.reviewerName}` : ""}
+                  </span>
+                  <time className="text-xs text-gray-500">{formatInstantBr(r.createdAt)}</time>
+                </div>
+                {r.notes && <p className="mt-1 whitespace-pre-line text-gray-700">{r.notes}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {c.status === "ENVIADO" && (
         <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">

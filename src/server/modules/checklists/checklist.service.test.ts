@@ -4,6 +4,7 @@ vi.mock("@/server/db/prisma", () => {
   const prisma = {
     checklist: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -12,6 +13,11 @@ vi.mock("@/server/db/prisma", () => {
     },
     checklistPhoto: {
       findMany: vi.fn(),
+    },
+    damageReport: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
     },
     checklistItemTemplate: {
       findMany: vi.fn(),
@@ -418,6 +424,108 @@ describe("submitChecklist (DEVOLUCAO)", () => {
         }),
       }),
     );
+  });
+});
+
+describe("submitChecklist (avaria)", () => {
+  it("registra a avaria declarada em Avarias, ligada ao checklist e à cautela", async () => {
+    const devolucaoChecklist = {
+      ...baseChecklist,
+      type: "DEVOLUCAO" as const,
+      caution: {
+        ...baseChecklist.caution,
+        status: "EM_USO" as const,
+        vehicle: { id: "v1", currentStatus: "EM_USO" as const },
+      },
+    };
+    (prisma.checklist.findUnique as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(devolucaoChecklist)
+      .mockResolvedValueOnce({ ...devolucaoChecklist, status: "ENVIADO" });
+    (prisma.checklist.update as ReturnType<typeof vi.fn>).mockResolvedValue(devolucaoChecklist);
+    (prisma.checklistPhoto.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { checklistItemId: null, type: "AVARIA" },
+    ]);
+    (prisma.damageReport.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    (prisma.damageReport.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: "d1" });
+
+    await submitChecklist(
+      "cl1",
+      {
+        realDate: "2026-06-20",
+        realTime: "12:00",
+        mileage: 12500,
+        fuelLevel: "MEIO",
+        fuelCardStatus: "PRESENTE",
+        internalCleanliness: "REGULAR",
+        externalCleanliness: "REGULAR",
+        parkingLocation: null,
+        hasChangesFromInitial: false,
+        changesDescription: null,
+        hasDamage: true,
+        damageDescription: "Risco na porta traseira direita",
+        generalNotes: null,
+        items: [
+          { itemKey: "para_brisas", answer: "BOM", observation: null },
+          { itemKey: "farois_dianteiros", answer: "BOM", observation: null },
+        ],
+      },
+      baseActor,
+    );
+
+    expect(prisma.damageReport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          checklistId: "cl1",
+          description: "Risco na porta traseira direita",
+        }),
+      }),
+    );
+  });
+});
+
+describe("submitChecklist (DEVOLUCAO, quilometragem)", () => {
+  it("recusa devolução com quilometragem menor que a da retirada", async () => {
+    const devolucaoChecklist = {
+      ...baseChecklist,
+      type: "DEVOLUCAO" as const,
+      caution: {
+        ...baseChecklist.caution,
+        status: "EM_USO" as const,
+        vehicle: { id: "v1", currentStatus: "EM_USO" as const },
+      },
+    };
+    (prisma.checklist.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(devolucaoChecklist);
+    (prisma.checklistPhoto.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.checklist.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      mileage: 48230,
+    });
+
+    await expect(
+      submitChecklist(
+        "cl1",
+        {
+          realDate: "2026-06-20",
+          realTime: "12:00",
+          mileage: 4823,
+          fuelLevel: "MEIO",
+          fuelCardStatus: "PRESENTE",
+          internalCleanliness: "REGULAR",
+          externalCleanliness: "REGULAR",
+          parkingLocation: null,
+          hasChangesFromInitial: false,
+          changesDescription: null,
+          hasDamage: false,
+          damageDescription: null,
+          generalNotes: null,
+          items: [
+            { itemKey: "para_brisas", answer: "BOM", observation: null },
+            { itemKey: "farois_dianteiros", answer: "BOM", observation: null },
+          ],
+        },
+        baseActor,
+      ),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(prisma.caution.update).not.toHaveBeenCalled();
   });
 });
 

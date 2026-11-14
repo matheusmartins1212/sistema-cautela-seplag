@@ -4,6 +4,7 @@ import { listDamages } from "@/server/modules/damages/damage.service";
 import { listDamagesQuerySchema } from "@/server/modules/damages/damage.schemas";
 import { toPublicDamage } from "@/server/modules/damages/damage.dto";
 import { DamageStatusBadge } from "@/components/damages/damage-status-badge";
+import { DamageActions } from "@/components/damages/damage-actions";
 import { DAMAGE_STATUS_LABEL, SEVERITY_LABEL } from "@/components/damages/labels";
 import { formatInstantBr } from "@/shared/time";
 
@@ -75,8 +76,8 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card">
+        <table className="w-full min-w-[60rem] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
             <tr>
               <th className="px-4 py-3">Veículo</th>
@@ -84,12 +85,13 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
               <th className="px-4 py-3">Severidade</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Aberta em</th>
+              <th className="px-4 py-3">Atualizar</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
                   Nenhuma avaria registrada.
                 </td>
               </tr>
@@ -112,13 +114,38 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
                       "—"
                     )}
                   </td>
-                  <td className="max-w-md px-4 py-3 text-gray-700">{dmg.description}</td>
+                  <td className="max-w-md px-4 py-3 text-gray-700">
+                    <p className="whitespace-pre-line">{dmg.description}</p>
+                    {(dmg.checklistId || dmg.cautionId) && (
+                      <div className="mt-1 flex gap-3 text-xs">
+                        {dmg.checklistId && (
+                          <Link
+                            href={`/admin/checklists/${dmg.checklistId}`}
+                            className="font-medium text-institutional-700 hover:underline"
+                          >
+                            Ver checklist
+                          </Link>
+                        )}
+                        {dmg.cautionId && (
+                          <Link
+                            href={`/admin/cautelas/${dmg.cautionId}`}
+                            className="font-medium text-institutional-700 hover:underline"
+                          >
+                            Ver cautela
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-700">{SEVERITY_LABEL[dmg.severity]}</td>
                   <td className="px-4 py-3">
                     <DamageStatusBadge status={dmg.status} />
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">
                     {formatInstantBr(dmg.createdAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <DamageActions damageId={dmg.id} status={dmg.status} severity={dmg.severity} />
                   </td>
                 </tr>
               );

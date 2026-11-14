@@ -9,6 +9,9 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Reserva o espaço da barra de rolagem: a largura da página não muda
+       quando o conteúdo cresce e a barra aparece (evita "pulos" de layout). */
+    scrollbar-gutter: stable;
   }
 
   body {

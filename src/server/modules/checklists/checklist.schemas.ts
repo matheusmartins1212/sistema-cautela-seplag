@@ -82,16 +82,27 @@ export const submitChecklistSchema = commonChecklistFields
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["items", idx, "observation"],
-          message: "Itens RUIM/AUSENTE exigem observação.",
+          message: "Itens marcados como Ruim ou Ausente precisam de uma observação.",
         });
       }
     });
   });
 
-export const reviewChecklistSchema = z.object({
-  decision: z.enum(["APPROVE", "REQUEST_RECTIFICATION"]),
-  reviewNotes: optionalTrimmed(1000).optional(),
-});
+export const reviewChecklistSchema = z
+  .object({
+    decision: z.enum(["APPROVE", "REQUEST_RECTIFICATION"]),
+    reviewNotes: optionalTrimmed(1000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Pedir correção sem dizer o que corrigir deixa o servidor sem saída.
+    if (data.decision === "REQUEST_RECTIFICATION" && (data.reviewNotes ?? "").length < 3) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["reviewNotes"],
+        message: "Explique o que precisa ser corrigido.",
+      });
+    }
+  });
 
 export type SaveChecklistDraftInput = z.infer<typeof saveChecklistDraftSchema>;
 export type SubmitChecklistInput = z.infer<typeof submitChecklistSchema>;

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { VehicleCategory } from "@prisma/client";
+import type { VehicleCategory, VehicleStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiPost } from "@/lib/api-client";
+import { VEHICLE_CATEGORY_LABEL } from "@/components/vehicles/labels";
 
 interface VehicleOption {
   id: string;
@@ -17,7 +18,15 @@ interface VehicleOption {
   plate: string;
   plateFormatted: string;
   category: VehicleCategory;
-  currentStatus: string;
+  currentStatus: VehicleStatus;
+  /** Cautela que ocupa o veículo no período pedido; se houver, não dá para escolher. */
+  conflictCode: string | null;
+}
+
+function optionNote(v: VehicleOption): string {
+  if (v.conflictCode) return ` · ocupado no período (${v.conflictCode})`;
+  if (v.currentStatus !== "DISPONIVEL") return " · tem cautela em outra data";
+  return "";
 }
 
 interface Props {
@@ -144,7 +153,7 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
       <div className="space-y-3 rounded-card border border-success/30 bg-success/5 p-4">
         <p className="text-sm font-medium text-gray-800">Aprovar e selecionar veículo a liberar</p>
         <Select
-          label="Veículo disponível"
+          label="Veículo"
           name="vehicleId"
           value={vehicleId}
           onChange={(e) => setVehicleId(e.target.value)}
@@ -154,14 +163,21 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
             Selecione um veículo…
           </option>
           {availableVehicles.length === 0 && (
-            <option disabled>Nenhum veículo disponível no momento.</option>
+            <option disabled>Nenhum veículo ativo na frota.</option>
           )}
           {availableVehicles.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.brand} {v.model} — {v.plateFormatted} ({v.category})
+            <option key={v.id} value={v.id} disabled={v.conflictCode !== null}>
+              {v.brand} {v.model} · {v.plateFormatted} · {VEHICLE_CATEGORY_LABEL[v.category]}
+              {optionNote(v)}
             </option>
           ))}
         </Select>
+        {availableVehicles.length > 0 && availableVehicles.every((v) => v.conflictCode) && (
+          <Alert tone="warning">
+            Todos os veículos já estão ocupados nesse período. Recuse a solicitação ou combine outra
+            data com o servidor.
+          </Alert>
+        )}
         <Textarea
           label="Observação administrativa (opcional)"
           name="adminNotes"
@@ -186,7 +202,7 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
               O veículo{" "}
               <strong>
                 {selectedVehicle
-                  ? `${selectedVehicle.brand} ${selectedVehicle.model} — ${selectedVehicle.plateFormatted}`
+                  ? `${selectedVehicle.brand} ${selectedVehicle.model} (${selectedVehicle.plateFormatted})`
                   : ""}
               </strong>{" "}
               será liberado, a cautela criada e o solicitante notificado por e-mail.

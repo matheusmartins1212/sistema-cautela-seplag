@@ -14,6 +14,9 @@ vi.mock("@/server/db/prisma", () => {
     auditLog: {
       findMany: vi.fn(),
     },
+    user: {
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn(async (arg: unknown) =>
       typeof arg === "function"
         ? (arg as (tx: unknown) => unknown)(prisma)
@@ -26,7 +29,13 @@ vi.mock("@/server/lib/audit", () => ({ recordAudit: vi.fn() }));
 
 import { prisma } from "@/server/db/prisma";
 import { recordAudit } from "@/server/lib/audit";
-import { changeVehicleStatus, createVehicle, listVehicles, updateVehicle } from "./vehicle.service";
+import {
+  changeVehicleStatus,
+  createVehicle,
+  getVehicleHistory,
+  listVehicles,
+  updateVehicle,
+} from "./vehicle.service";
 
 const actor = {
   user: {
@@ -248,6 +257,47 @@ describe("updateVehicle", () => {
           }),
         }),
       }),
+    );
+  });
+
+  it("não registra auditoria quando nada mudou", async () => {
+    (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseVehicle);
+    (prisma.vehicle.update as ReturnType<typeof vi.fn>).mockResolvedValue(baseVehicle);
+
+    await updateVehicle("v1", { model: "L200" }, actor);
+
+    expect(recordAudit).not.toHaveBeenCalled();
+  });
+});
+
+describe("getVehicleHistory", () => {
+  it("inclui o nome de quem fez cada alteração", async () => {
+    (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseVehicle);
+    (prisma.auditLog.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: "a1",
+        action: "VEHICLE_CREATED",
+        actorUserId: "admin1",
+        metadata: { plate: "RRZ5I91" },
+        createdAt: new Date("2026-11-13T12:00:00Z"),
+      },
+      {
+        id: "a2",
+        action: "VEHICLE_UPDATED",
+        actorUserId: null,
+        metadata: { changes: {} },
+        createdAt: new Date("2026-11-13T13:00:00Z"),
+      },
+    ]);
+    (prisma.user.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "admin1", fullName: "Maria Admin" },
+    ]);
+
+    const history = await getVehicleHistory("v1");
+
+    expect(history.map((h) => h.actorName)).toEqual(["Maria Admin", null]);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["admin1"] } } }),
     );
   });
 });

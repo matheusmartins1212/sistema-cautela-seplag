@@ -53,3 +53,22 @@ const instantFormatter = new Intl.DateTimeFormat("pt-BR", {
 export function formatInstantBr(value: string | Date): string {
   return instantFormatter.format(new Date(value)).replace(",", "");
 }
+
+/**
+ * Formata um horário agendado (gravado como relógio de Cuiabá em campo UTC)
+ * como "dd/mm/aaaa hh:mm", sem conversão de fuso.
+ */
+export function formatWallClockBr(value: string | Date): string {
+  const d = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(
+    d.getUTCHours(),
+  )}:${pad(d.getUTCMinutes())}`;
+}
+
+/** Converte "aaaa-mm-dd" em "dd/mm/aaaa". Devolve o valor original se não casar. */
+export function formatIsoDateBr(value: string | null | undefined): string {
+  if (!value) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}

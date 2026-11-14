@@ -6,6 +6,8 @@ import {
   type CalendarFilters,
 } from "@/server/modules/calendar/calendar.service";
 import { cn } from "@/lib/cn";
+import { RevealOnChange } from "@/components/calendar/reveal-on-change";
+import { formatPlate } from "@/shared/validation/plate";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { CAUTION_STATUS_LABEL } from "@/components/cautions/labels";
 import { VEHICLE_CATEGORY_LABEL } from "@/components/vehicles/labels";
@@ -100,6 +102,7 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            scroll={false}
             href={`/admin/calendario?${filterQs({ month: `${prev.y}-${String(prev.m).padStart(2, "0")}` })}`}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
@@ -109,6 +112,7 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
             {monthLabel}
           </span>
           <Link
+            scroll={false}
             href={`/admin/calendario?${filterQs({ month: `${next.y}-${String(next.m).padStart(2, "0")}` })}`}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
@@ -163,95 +167,118 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
         </Link>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50 text-center text-xs font-semibold uppercase tracking-wide text-gray-600">
-          {WEEKDAYS.map((w) => (
-            <div key={w} className="px-2 py-2">
-              {w}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {Array.from({ length: firstWeekday }).map((_, i) => (
-            <div
-              key={`blank-${i}`}
-              className="min-h-24 border-b border-r border-gray-100 bg-gray-50/40"
-            />
-          ))}
-          {calendar.days.map((d) => {
-            const isToday = d.date === todayStr;
-            const isSelected = d.date === selectedDay;
-            return (
-              <Link
-                key={d.date}
-                href={`/admin/calendario?${filterQs({ month: monthValue, day: d.date })}`}
-                className={cn(
-                  "min-h-24 border-b border-r border-gray-100 p-2 transition hover:bg-institutional-50",
-                  isSelected && "bg-institutional-50 ring-2 ring-inset ring-institutional-400",
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={cn(
-                      "text-sm font-semibold",
-                      isToday
-                        ? "flex h-6 w-6 items-center justify-center rounded-full bg-institutional-800 text-white"
-                        : "text-gray-700",
-                    )}
-                  >
-                    {d.day}
-                  </span>
-                  {d.total > 0 && (
-                    <span className="rounded-full bg-institutional-100 px-2 text-xs font-bold text-institutional-800">
-                      {d.total}
-                    </span>
+      <div className="space-y-6 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-6 xl:space-y-0">
+        <div
+          data-calendar-grid
+          className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card"
+        >
+          <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50 text-center text-xs font-semibold uppercase tracking-wide text-gray-600">
+            {WEEKDAYS.map((w) => (
+              <div key={w} className="px-2 py-2">
+                {w}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {Array.from({ length: firstWeekday }).map((_, i) => (
+              <div
+                key={`blank-${i}`}
+                className="min-h-24 border-b border-r border-gray-100 bg-gray-50/40"
+              />
+            ))}
+            {calendar.days.map((d) => {
+              const isToday = d.date === todayStr;
+              const isSelected = d.date === selectedDay;
+              return (
+                <Link
+                  key={d.date}
+                  scroll={false}
+                  aria-current={isSelected ? "date" : undefined}
+                  aria-label={`${d.day} de ${MONTH_NAMES[month - 1]}: ${d.total} cautela(s)`}
+                  href={`/admin/calendario?${filterQs({ month: monthValue, day: d.date })}`}
+                  className={cn(
+                    "min-h-24 border-b border-r border-gray-100 p-2 transition hover:bg-institutional-50",
+                    isSelected && "bg-institutional-50 ring-2 ring-inset ring-institutional-400",
                   )}
-                </div>
-                {d.total > 0 && (
-                  <div className="mt-1 space-y-0.5 text-[0.7rem] leading-tight text-gray-500">
-                    {d.matutino > 0 && <div>Matutino: {d.matutino}</div>}
-                    {d.vespertino > 0 && <div>Vespertino: {d.vespertino}</div>}
-                    {d.integral > 0 && <div>Integral: {d.integral}</div>}
-                  </div>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {dayCautions && (
-        <section className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
-          <h2 className="text-sm font-semibold text-gray-700">
-            Cautelas em {selectedDay?.split("-").reverse().join("/")} ({dayCautions.length})
-          </h2>
-          {dayCautions.length === 0 ? (
-            <p className="mt-3 text-sm text-gray-500">Nenhuma cautela neste dia.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-gray-100">
-              {dayCautions.map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/admin/cautelas/${c.id}`}
-                      className="font-mono text-xs font-semibold text-institutional-700 hover:underline"
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "text-sm font-semibold",
+                        isToday
+                          ? "flex h-6 w-6 items-center justify-center rounded-full bg-institutional-800 text-white"
+                          : "text-gray-700",
+                      )}
                     >
-                      {c.publicCode}
-                    </Link>
-                    <p className="truncate text-sm text-gray-800">
-                      {c.vehicle.brand} {c.vehicle.model} · {c.vehicle.plate}
-                    </p>
-                    <p className="truncate text-xs text-gray-500">
-                      {c.user.fullName} · {c.request.destination}
-                    </p>
+                      {d.day}
+                    </span>
+                    {d.total > 0 && (
+                      <span className="rounded-full bg-institutional-100 px-2 text-xs font-bold text-institutional-800">
+                        {d.total}
+                      </span>
+                    )}
                   </div>
-                  <CautionStatusBadge status={c.status} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+                  {d.total > 0 && (
+                    <div className="mt-1 space-y-0.5 text-[0.7rem] leading-tight text-gray-500">
+                      {d.matutino > 0 && <div>Matutino: {d.matutino}</div>}
+                      {d.vespertino > 0 && <div>Vespertino: {d.vespertino}</div>}
+                      {d.integral > 0 && <div>Integral: {d.integral}</div>}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <RevealOnChange watch={selectedDay ?? null} className="xl:sticky xl:top-20">
+          <section
+            data-day-panel
+            aria-live="polite"
+            className="rounded-card border border-gray-200 bg-white p-5 shadow-card"
+          >
+            {!dayCautions ? (
+              <>
+                <h2 className="text-sm font-semibold text-gray-700">Cautelas do dia</h2>
+                <p className="mt-3 text-sm text-gray-500">
+                  Clique em um dia do calendário para ver as cautelas.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Cautelas em {selectedDay?.split("-").reverse().join("/")} ({dayCautions.length})
+                </h2>
+                {dayCautions.length === 0 ? (
+                  <p className="mt-3 text-sm text-gray-500">Nenhuma cautela neste dia.</p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-gray-100">
+                    {dayCautions.map((c) => (
+                      <li key={c.id} className="flex items-start justify-between gap-3 py-3">
+                        <div className="min-w-0">
+                          <Link
+                            href={`/admin/cautelas/${c.id}`}
+                            className="font-mono text-xs font-semibold text-institutional-700 hover:underline"
+                          >
+                            {c.publicCode}
+                          </Link>
+                          <p className="truncate text-sm text-gray-800">
+                            {c.vehicle.brand} {c.vehicle.model} · {formatPlate(c.vehicle.plate)}
+                          </p>
+                          <p className="truncate text-xs text-gray-500">
+                            {c.user.fullName} · {c.request.destination}
+                          </p>
+                        </div>
+                        <CautionStatusBadge status={c.status} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </section>
+        </RevealOnChange>
+      </div>
     </div>
   );
 }

@@ -1,14 +1,28 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { VehicleCategory, VehicleUsageType } from "@prisma/client";
-import { getVehicleById, getVehicleHistory } from "@/server/modules/vehicles/vehicle.service";
+import {
+  getVehicleById,
+  getVehicleHistory,
+  listVehicleCautions,
+} from "@/server/modules/vehicles/vehicle.service";
 import { toPublicVehicle } from "@/server/modules/vehicles/vehicle.dto";
 import { Errors } from "@/server/lib/errors";
 import { VehicleStatusBadge } from "@/components/vehicles/vehicle-status-badge";
 import { VehicleForm } from "@/components/vehicles/vehicle-form";
 import { VehicleStatusActions } from "@/components/vehicles/vehicle-status-actions";
 import { VEHICLE_CATEGORY_LABEL, VEHICLE_USAGE_LABEL } from "@/components/vehicles/labels";
-import { formatInstantBr } from "@/shared/time";
+import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
+import { describeVehicleAudit, type VehicleAuditTone } from "@/components/vehicles/vehicle-audit";
+import { formatInstantBr, formatWallClockBr } from "@/shared/time";
+import { cn } from "@/lib/cn";
+
+const TONE_DOT: Record<VehicleAuditTone, string> = {
+  neutral: "bg-gray-400",
+  info: "bg-institutional-500",
+  warning: "bg-warning",
+  success: "bg-success",
+};
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -28,7 +42,10 @@ export default async function VeiculoDetalhePage({ params }: Props) {
     throw error;
   }
   const vehicle = toPublicVehicle(vehicleData, { includeNotes: true });
-  const history = await getVehicleHistory(id, 30);
+  const [history, cautions] = await Promise.all([
+    getVehicleHistory(id, 30),
+    listVehicleCautions(id, 15),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -66,38 +83,99 @@ export default async function VeiculoDetalhePage({ params }: Props) {
           Status administrativo
         </h2>
         <p className="mb-4 text-sm text-gray-600">
-          Estados de ciclo (em uso, reservado, etc.) são controlados automaticamente pelo fluxo de
-          cautelas — não podem ser alterados manualmente.
+          Os estados de ciclo (reservado, em uso, aguardando devolução) mudam sozinhos conforme as
+          cautelas avançam. Aqui você só bloqueia, coloca em manutenção, inativa ou dá baixa.
         </p>
         <VehicleStatusActions vehicleId={vehicle.id} currentStatus={vehicle.currentStatus} />
       </section>
 
       <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Histórico de auditoria
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600">
+            Cautelas deste veículo
+          </h2>
+          {cautions.length > 0 && (
+            <Link
+              href={`/admin/cautelas?search=${encodeURIComponent(vehicleData.plate)}`}
+              className="text-sm font-medium text-institutional-700 hover:underline"
+            >
+              Ver todas
+            </Link>
+          )}
+        </div>
+        {cautions.length === 0 ? (
+          <p className="text-sm text-gray-500">Este veículo ainda não teve cautelas.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {cautions.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/admin/cautelas/${c.id}`}
+                  className="-mx-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md px-2 py-3 hover:bg-gray-50"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-semibold text-institutional-900">
+                        {c.publicCode}
+                      </span>
+                      <span className="truncate text-sm font-medium text-gray-900">
+                        {c.userName}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {formatWallClockBr(c.plannedWithdrawalAt)} até{" "}
+                      {formatWallClockBr(c.plannedReturnAt)}
+                    </div>
+                  </div>
+                  <CautionStatusBadge status={c.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-600">
+          Histórico do cadastro
         </h2>
+        <p className="mb-4 text-sm text-gray-600">
+          Quem cadastrou, editou ou mudou o status administrativo deste veículo, e quando.
+        </p>
         {history.length === 0 ? (
           <p className="text-sm text-gray-500">Nenhum evento registrado ainda.</p>
         ) : (
-          <ol className="space-y-3">
-            {history.map((entry) => (
-              <li
-                key={entry.id}
-                className="rounded-md border border-gray-100 bg-gray-50 p-3 text-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-institutional-800">
-                    {entry.action}
-                  </span>
-                  <time className="text-xs text-gray-500">{formatInstantBr(entry.createdAt)}</time>
-                </div>
-                {entry.metadata && typeof entry.metadata === "object" && (
-                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-gray-700">
-                    {JSON.stringify(entry.metadata, null, 2)}
-                  </pre>
-                )}
-              </li>
-            ))}
+          <ol className="relative space-y-5 border-l border-gray-200 pl-5">
+            {history.map((entry) => {
+              const view = describeVehicleAudit(entry.action, entry.metadata);
+              return (
+                <li key={entry.id} className="relative text-sm">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute -left-[1.6875rem] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-white",
+                      TONE_DOT[view.tone],
+                    )}
+                  />
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                    <span className="font-medium text-gray-900">{view.title}</span>
+                    <time dateTime={entry.createdAt} className="text-xs text-gray-500">
+                      {formatInstantBr(entry.createdAt)}
+                    </time>
+                  </div>
+                  <div className="text-xs text-gray-500">por {entry.actorName ?? "Sistema"}</div>
+                  {view.details.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 text-gray-700">
+                      {view.details.map((line, index) => (
+                        <li key={index} className="break-words">
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>
