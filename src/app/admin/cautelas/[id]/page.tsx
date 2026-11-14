@@ -54,6 +54,7 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
   const c = toPublicCaution(cautionRaw, {
     includeRequest: true,
     includeUser: true,
+    includeDriver: true,
     includeVehicle: true,
   });
 
@@ -70,7 +71,7 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
     <div className="space-y-6">
       <div>
         <Link href="/admin/cautelas" className="text-sm text-institutional-700 hover:underline">
-          ← Cautelas
+          ← Viagens
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -97,10 +98,31 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
             <Row label="Matrícula" value={c.user.registrationNumber} />
             <Row label="E-mail" value={c.user.email} />
             <Row label="Telefone" value={c.user.phone} />
+            <Row label="Órgão" value={c.request?.requestingAgency ?? c.user.agency ?? "—"} />
             <Row label="Setor" value={c.user.sector} />
+            {c.request?.contactPhone && (
+              <Row label="Contato no dia" value={c.request.contactPhone} />
+            )}
           </dl>
         </section>
       )}
+
+      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
+          Condutor
+        </h2>
+        {c.driver ? (
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <Row label="Nome" value={c.driver.fullName} />
+            <Row label="Telefone" value={c.driver.phone} />
+            <Row label="E-mail" value={c.driver.email} />
+          </dl>
+        ) : (
+          <p className="text-sm text-gray-600">
+            Cautela anterior à central: o próprio solicitante conduz e preenche os checklists.
+          </p>
+        )}
+      </section>
 
       {c.vehicle && (
         <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
@@ -127,17 +149,20 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
       )}
 
       <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Período
-        </h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">Viagem</h2>
         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Retirada prevista" value={formatDateTimeBr(c.plannedWithdrawalAt)} />
-          <Row label="Devolução prevista" value={formatDateTimeBr(c.plannedReturnAt)} />
+          <Row label="Saída prevista" value={formatDateTimeBr(c.plannedWithdrawalAt)} />
+          <Row label="Retorno previsto" value={formatDateTimeBr(c.plannedReturnAt)} />
+          {c.request?.origin && <Row label="Local de saída" value={c.request.origin} />}
+          {c.request && <Row label="Destino" value={c.request.destination} />}
+          {c.request?.passengerCount != null && (
+            <Row label="Passageiros" value={String(c.request.passengerCount)} />
+          )}
           {c.actualWithdrawalAt && (
-            <Row label="Retirada efetiva" value={formatInstantBr(c.actualWithdrawalAt)} />
+            <Row label="Saída efetiva" value={formatInstantBr(c.actualWithdrawalAt)} />
           )}
           {c.actualReturnAt && (
-            <Row label="Devolução efetiva" value={formatInstantBr(c.actualReturnAt)} />
+            <Row label="Retorno efetivo" value={formatInstantBr(c.actualReturnAt)} />
           )}
         </dl>
       </section>
@@ -149,8 +174,7 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
           </h2>
           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <Row label="Código" value={c.request.publicCode} />
-            <Row label="Destino" value={c.request.destination} />
-            <Row label="Motivo" value={c.request.reason} />
+            <Row label="Finalidade" value={c.request.reason} />
           </dl>
           <div className="mt-4">
             <Link

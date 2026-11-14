@@ -109,7 +109,7 @@ function BackHeader({ cautionId }: { cautionId: string }) {
         href={`/cautelas/${cautionId}`}
         className="text-sm text-institutional-700 hover:underline"
       >
-        ← Voltar para a cautela
+        ← Voltar para a viagem
       </Link>
     </div>
   );

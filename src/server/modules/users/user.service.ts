@@ -5,7 +5,13 @@ import { recordAudit } from "@/server/lib/audit";
 import type { RequestContext } from "@/server/lib/request-context";
 import { isSuperAdmin } from "@/server/modules/auth/rbac";
 import { revokeAllSessions, type SessionUser } from "@/server/modules/auth/session";
-import type { ChangeUserRoleInput, ListUsersQuery, SetUserStatusInput } from "./user.schemas";
+import { CANCELLABLE_CAUTION_STATUSES } from "@/server/modules/cautions/caution.service";
+import type {
+  ChangeUserRoleInput,
+  ListUsersQuery,
+  SetUserStatusInput,
+  UpdateDriverProfileInput,
+} from "./user.schemas";
 
 export interface ListUsersResult {
   items: User[];
@@ -18,6 +24,7 @@ export async function listUsers(query: ListUsersQuery): Promise<ListUsersResult>
   const where: Prisma.UserWhereInput = { deletedAt: null };
   if (query.status) where.status = query.status;
   if (query.role) where.role = query.role;
+  if (query.driver) where.isDriver = true;
   if (query.search) {
     const term = query.search.trim();
     // CPF é armazenado só com dígitos; só entra na busca se o termo tiver dígitos.
@@ -149,4 +156,72 @@ export async function changeUserRole(
   });
 
   return updated;
+}
+
+/**
+ * Habilita ou desabilita o usuário como condutor da central. Qualquer
+ * administrador pode fazê-lo (inclusive na própria conta, já que um gestor da
+ * central também pode dirigir). Desabilitar não mexe nas viagens já escaladas.
+ */
+export async function updateDriverProfile(
+  id: string,
+  input: UpdateDriverProfileInput,
+  actor: SessionUser,
+  context?: RequestContext,
+): Promise<User> {
+  const target = await getUserByIdAdmin(id);
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      isDriver: input.isDriver,
+      driverLicenseCategory: input.driverLicenseCategory ?? null,
+      driverLicenseExpiresAt: input.driverLicenseExpiresAt
+        ? new Date(`${input.driverLicenseExpiresAt}T00:00:00.000Z`)
+        : null,
+    },
+  });
+
+  await recordAudit({
+    action: "USER_DRIVER_UPDATED",
+    actorUserId: actor.user.id,
+    actorRole: actor.user.role,
+    entityType: "User",
+    entityId: id,
+    metadata: {
+      from: target.isDriver,
+      to: input.isDriver,
+      licenseCategory: input.driverLicenseCategory ?? null,
+    },
+    context,
+  });
+
+  return updated;
+}
+
+export interface DriverOverview {
+  user: User;
+  /** Viagens ainda não encerradas (programadas, em andamento ou atrasadas). */
+  activeTrips: number;
+  nextTripAt: Date | null;
+}
+
+/** Condutores da central com a carga de viagens em aberto de cada um. */
+export async function listDriversOverview(): Promise<DriverOverview[]> {
+  const drivers = await prisma.user.findMany({
+    where: { isDriver: true, deletedAt: null },
+    orderBy: { fullName: "asc" },
+    include: {
+      drivenCautions: {
+        where: { status: { in: [...CANCELLABLE_CAUTION_STATUSES] } },
+        select: { plannedWithdrawalAt: true },
+        orderBy: { plannedWithdrawalAt: "asc" },
+      },
+    },
+  });
+  return drivers.map(({ drivenCautions, ...user }) => ({
+    user,
+    activeTrips: drivenCautions.length,
+    nextTripAt: drivenCautions[0]?.plannedWithdrawalAt ?? null,
+  }));
 }

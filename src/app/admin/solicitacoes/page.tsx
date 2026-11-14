@@ -52,7 +52,7 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
             type="text"
             name="search"
             defaultValue={cleaned.search ?? ""}
-            placeholder="código, solicitante, destino…"
+            placeholder="código, solicitante, órgão, destino…"
             className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
           />
         </label>
@@ -72,7 +72,7 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">Retirada de</span>
+          <span className="mb-1 block text-xs font-medium text-gray-600">Saída de</span>
           <input
             type="date"
             name="withdrawalDateFrom"
@@ -81,7 +81,7 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
           />
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">Retirada até</span>
+          <span className="mb-1 block text-xs font-medium text-gray-600">Saída até</span>
           <input
             type="date"
             name="withdrawalDateTo"
@@ -112,7 +112,7 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
               <th className="px-4 py-3">Código</th>
               <th className="px-4 py-3">Solicitante</th>
               <th className="px-4 py-3">Período</th>
-              <th className="px-4 py-3">Destino</th>
+              <th className="px-4 py-3">Trajeto</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
@@ -135,7 +135,8 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{r.user?.fullName ?? "—"}</div>
                     <div className="text-xs text-gray-500">
-                      Mat. {r.user?.registrationNumber ?? "—"} · {r.user?.sector ?? ""}
+                      {r.requestingAgency ?? `Mat. ${r.user?.registrationNumber ?? "—"}`}
+                      {r.passengerCount !== null && ` · ${r.passengerCount} passageiro(s)`}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-700">
@@ -145,7 +146,15 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
                       até {formatDateBr(r.returnDate)} {r.returnTime}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{r.destination}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {r.origin && <div className="text-xs text-gray-500">de {r.origin}</div>}
+                    <div>{r.destination}</div>
+                    {r.caution?.driver && (
+                      <div className="text-xs text-gray-500">
+                        Condutor: {r.caution.driver.fullName}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <RequestStatusBadge status={r.status} />
                   </td>

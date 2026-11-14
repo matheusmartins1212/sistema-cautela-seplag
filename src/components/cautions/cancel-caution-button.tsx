@@ -66,13 +66,13 @@ export function CancelCautionButton({
         </button>
       ) : (
         <Button variant="danger" onClick={() => setOpen(true)}>
-          Cancelar cautela
+          Cancelar viagem
         </Button>
       )}
 
       <ConfirmDialog
         open={open}
-        title={`Cancelar a cautela ${publicCode}?`}
+        title={`Cancelar a viagem ${publicCode}?`}
         tone="danger"
         confirmLabel="Confirmar cancelamento"
         loading={loading}
@@ -83,11 +83,11 @@ export function CancelCautionButton({
             {vehicleOut ? (
               <p>
                 O veículo <strong>já foi retirado</strong>. Ao cancelar, ele fica livre para novas
-                cautelas no sistema, então confirme antes que ele já voltou ao pátio.
+                viagens no sistema, então confirme antes que ele já voltou ao pátio.
               </p>
             ) : (
               <p>
-                A reserva é desfeita e o veículo fica <strong>livre</strong> para outras cautelas.
+                A reserva é desfeita e o veículo fica <strong>livre</strong> para outras viagens.
               </p>
             )}
             <p>O solicitante é avisado e a ação fica registrada na auditoria.</p>

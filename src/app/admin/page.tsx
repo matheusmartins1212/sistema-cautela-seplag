@@ -34,13 +34,13 @@ export default async function AdminDashboardPage() {
       tone: d.requests.pending > 0 ? "warning" : "neutral",
     },
     {
-      label: "Cautelas ativas",
+      label: "Viagens ativas",
       value: d.cautions.active,
       href: "/admin/cautelas",
       tone: "info",
     },
     {
-      label: "Cautelas atrasadas",
+      label: "Viagens atrasadas",
       value: d.cautions.overdue,
       href: "/admin/cautelas?status=ATRASADA",
       tone: d.cautions.overdue > 0 ? "danger" : "neutral",
@@ -98,11 +98,11 @@ export default async function AdminDashboardPage() {
           emptyLabel="Nenhum veículo cadastrado."
         />
         <BreakdownCard
-          title="Cautelas por status"
+          title="Viagens por status"
           entries={Object.values(CautionStatus)
             .map((s) => ({ label: CAUTION_STATUS_LABEL[s], count: d.cautions.byStatus[s] }))
             .filter((e) => e.count > 0)}
-          emptyLabel="Nenhuma cautela registrada."
+          emptyLabel="Nenhuma viagem registrada."
         />
       </div>
     </div>

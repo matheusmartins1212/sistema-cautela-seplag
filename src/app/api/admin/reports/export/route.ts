@@ -28,14 +28,24 @@ export const GET = handleRoute(async (req) => {
 
   if (query.type === "vehicle-usage") {
     const { vehicleUsage } = await getCautionStats(range);
-    header = ["Veiculo", "Placa", "Cautelas"];
+    header = ["Veiculo", "Placa", "Viagens"];
     rows = vehicleUsage.map((r) => [r.label, r.plate, r.count]);
     filename = "uso-de-veiculos.csv";
   } else if (query.type === "by-sector") {
     const { bySector } = await getCautionStats(range);
-    header = ["Setor/Lotacao", "Cautelas"];
+    header = ["Setor/Lotacao", "Viagens"];
     rows = bySector.map((r) => [r.department, r.count]);
-    filename = "cautelas-por-setor.csv";
+    filename = "viagens-por-setor.csv";
+  } else if (query.type === "by-agency") {
+    const { byAgency } = await getCautionStats(range);
+    header = ["Orgao", "Viagens"];
+    rows = byAgency.map((r) => [r.agency, r.count]);
+    filename = "viagens-por-orgao.csv";
+  } else if (query.type === "by-driver") {
+    const { byDriver } = await getCautionStats(range);
+    header = ["Condutor", "Viagens"];
+    rows = byDriver.map((r) => [r.driver, r.count]);
+    filename = "viagens-por-condutor.csv";
   } else {
     const damages = await getDamagesByVehicle(range);
     header = ["Placa", "Avarias"];

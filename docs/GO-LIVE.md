@@ -45,7 +45,7 @@ modelo. O sistema **falha de propósito ao iniciar** se faltar algo obrigatório
 | `SMTP_SECURE` | `true` para porta 465; `false` para 587 (STARTTLS). |
 | `SMTP_USER`, `SMTP_PASSWORD` | Credenciais do remetente. |
 | `EMAIL_FROM_ADDRESS` | Ex.: `nao-responda@seplag.mt.gov.br`. |
-| `ALLOWED_EMAIL_DOMAIN` | `seplag.mt.gov.br` (domínio que pode se cadastrar). |
+| `ALLOWED_EMAIL_DOMAIN` | `seplag.mt.gov.br` (domínios que podem se cadastrar, separados por vírgula; aceita curinga, ex.: `seplag.mt.gov.br,*.mt.gov.br` para atender outros órgãos). |
 | `CRON_SECRET` | Segredo de 32+ chars para habilitar os jobs agendados (ver seção 5). |
 
 ### Com valores padrão (ajuste se quiser)
@@ -69,7 +69,7 @@ Na primeira implantação, no servidor (com o `.env` pronto):
 ```bash
 npm ci                  # instala dependências
 npm run prisma:deploy   # aplica as migrations no banco (produção)
-npm run db:seed         # cria super admin + catálogos (motivos, lotações, etc.)
+npm run db:seed         # cria super admin + catálogos (finalidades, lotações, órgãos, etc.)
 ```
 
 Os veículos da frota são cadastrados pelo painel administrativo (Veículos → Novo).

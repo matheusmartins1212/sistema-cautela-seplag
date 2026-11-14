@@ -3,9 +3,9 @@ import brasao from "@/assets/brasao-mt.png";
 import { env } from "@/server/config/env";
 
 const FEATURES = [
-  "Solicitação e aprovação de veículos on-line",
-  "Checklist de retirada e devolução com fotos",
-  "Histórico, avarias e auditoria de cada veículo",
+  "Órgãos solicitam o transporte on-line",
+  "A central define veículo e condutor",
+  "Checklist de saída e retorno com fotos",
 ];
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -33,14 +33,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               SEPLAG / SATGF
             </p>
             <h1 className="text-base font-semibold leading-tight lg:mt-2 lg:text-4xl lg:font-bold">
-              Sistema de Cautela de Veículos
+              Central de Veículos Compartilhados
             </h1>
           </div>
         </div>
 
         <div className="relative hidden lg:block">
           <p className="max-w-md text-lg leading-relaxed text-institutional-100">
-            Controle da frota oficial em um só lugar, da solicitação à devolução do veículo.
+            Frota oficial compartilhada entre os órgãos, do pedido de transporte ao retorno do
+            veículo.
           </p>
           <ul className="mt-8 space-y-4">
             {FEATURES.map((feature) => (

@@ -18,7 +18,7 @@ const prisma = new PrismaClient();
 // Catálogos
 // ----------------------------------------------------------------------------
 
-// Motivos de cautela (catálogo inicial; ajuste conforme a realidade da SEPLAG)
+// Finalidades da viagem (catálogo inicial; ajuste conforme a realidade da central)
 const CAUTION_REASONS = [
   "Viagem a serviço dentro do Estado",
   "Viagem a serviço fora do Estado",
@@ -43,6 +43,10 @@ const ORG_UNITS = [
   "Administrativo e Financeiro",
   "Outro",
 ];
+
+// Órgãos atendidos pela central (catálogo inicial; inclua os demais pela tela
+// Órgãos da área administrativa)
+const AGENCIES = ["SEPLAG - Secretaria de Estado de Planejamento e Gestão"];
 
 // Locais de estacionamento
 const PARKING_LOCATIONS = [
@@ -232,6 +236,17 @@ async function main() {
     ORG_UNITS,
   );
   console.log(`[seed] Lotações/setores: ${ORG_UNITS.length}`);
+
+  await seedCatalog(
+    (name, sortOrder) =>
+      prisma.agency.upsert({
+        where: { name },
+        update: { sortOrder },
+        create: { name, sortOrder },
+      }),
+    AGENCIES,
+  );
+  console.log(`[seed] Órgãos atendidos: ${AGENCIES.length}`);
 
   await seedCatalog(
     (name, sortOrder) =>

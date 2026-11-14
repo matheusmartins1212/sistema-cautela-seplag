@@ -3,11 +3,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Sistema de Cautela de Veículos — SEPLAG / SATGF",
-    template: "%s · Cautela de Veículos — SEPLAG / SATGF",
+    default: "Central de Veículos Compartilhados — SEPLAG / SATGF",
+    template: "%s · Central de Veículos — SEPLAG / SATGF",
   },
   description:
-    "Plataforma institucional de cautela e agendamento de veículos oficiais — SEPLAG / SATGF.",
+    "Central de veículos compartilhados: os órgãos solicitam o transporte e a central aciona veículo e condutor — SEPLAG / SATGF.",
   robots: { index: false, follow: false }, // sistema interno: não indexar
 };
 

@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
             label="E-mail institucional"
             name="email"
             type="email"
-            placeholder="nome@seplag.mt.gov.br"
+            placeholder="nome@orgao.mt.gov.br"
             required
           />
           <Button type="submit" loading={loading} className="w-full">

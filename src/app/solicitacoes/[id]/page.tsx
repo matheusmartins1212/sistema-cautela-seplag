@@ -6,15 +6,10 @@ import { toPublicRequest } from "@/server/modules/requests/request.dto";
 import { Errors } from "@/server/lib/errors";
 import { RequestStatusBadge } from "@/components/requests/request-status-badge";
 import { CancelRequestButton } from "@/components/requests/cancel-request-button";
-import { SHIFT_LABEL } from "@/components/requests/labels";
+import { TransportDetails } from "@/components/requests/transport-details";
 
 interface Props {
   params: Promise<{ id: string }>;
-}
-
-function formatDateBr(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
 }
 
 export default async function SolicitacaoDetalhePage({ params }: Props) {
@@ -60,21 +55,31 @@ export default async function SolicitacaoDetalhePage({ params }: Props) {
 
       {r.status === "APROVADA" && r.caution?.vehicle && (
         <div className="rounded-card border border-success/30 bg-success/5 p-4 text-sm">
-          <p className="font-semibold text-success">Veículo liberado</p>
-          <p className="mt-1 text-gray-800">
-            {r.caution.vehicle.brand} {r.caution.vehicle.model} —{" "}
-            <span className="font-mono">{r.caution.vehicle.plateFormatted}</span>
-          </p>
-          <p className="mt-1 text-xs text-gray-600">
-            Cautela <span className="font-mono">{r.caution.publicCode}</span> — preencha o checklist
-            de retirada no momento de retirar o veículo.
+          <p className="font-semibold text-success">Transporte confirmado</p>
+          <dl className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Row
+              label="Veículo"
+              value={`${r.caution.vehicle.brand} ${r.caution.vehicle.model} · ${r.caution.vehicle.plateFormatted}`}
+            />
+            {r.caution.driver ? (
+              <Row
+                label="Condutor"
+                value={`${r.caution.driver.fullName} · ${r.caution.driver.phone}`}
+              />
+            ) : (
+              <Row label="Condutor" value="Você mesmo (cautela)" />
+            )}
+          </dl>
+          <p className="mt-3 text-xs text-gray-600">
+            Viagem <span className="font-mono">{r.caution.publicCode}</span>. Em caso de mudança de
+            horário ou destino, avise a central com o código da solicitação.
           </p>
           <div className="mt-3">
             <Link
               href={`/cautelas/${r.caution.id}`}
               className="text-sm font-medium text-success hover:underline"
             >
-              Abrir cautela →
+              Acompanhar viagem →
             </Link>
           </div>
         </div>
@@ -84,16 +89,7 @@ export default async function SolicitacaoDetalhePage({ params }: Props) {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
           Dados da solicitação
         </h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Data de retirada" value={formatDateBr(r.withdrawalDate)} />
-          <Row label="Horário de retirada" value={r.withdrawalTime} />
-          <Row label="Data de devolução" value={formatDateBr(r.returnDate)} />
-          <Row label="Horário de devolução" value={r.returnTime} />
-          <Row label="Turno" value={SHIFT_LABEL[r.shift]} />
-          <Row label="Destino" value={r.destination} />
-          <Row label="Motivo" value={r.reason} />
-          {r.termNumber && <Row label="Número do termo" value={r.termNumber} />}
-        </dl>
+        <TransportDetails r={r} />
       </section>
 
       {canCancel && (

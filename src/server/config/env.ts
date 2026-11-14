@@ -26,6 +26,8 @@ const envSchema = z
     // Contato de suporte exibido no rodapé do login (ex.: "satgf@seplag.mt.gov.br · ramal 0000").
     SUPPORT_CONTACT: z.string().optional(),
 
+    // Domínios aceitos no cadastro, separados por vírgula. Aceita curinga de
+    // subdomínios para atender vários órgãos (ex.: "seplag.mt.gov.br,*.mt.gov.br").
     ALLOWED_EMAIL_DOMAIN: z.string().default("seplag.mt.gov.br"),
 
     SUPER_ADMIN_EMAIL: z.string().email().optional(),
@@ -35,7 +37,7 @@ const envSchema = z
     SUPER_ADMIN_REGISTRATION: z.string().optional(),
 
     EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
-    EMAIL_FROM_NAME: z.string().default("Sistema de Cautela de Veículos - SEPLAG/SATGF"),
+    EMAIL_FROM_NAME: z.string().default("Central de Veículos Compartilhados - SEPLAG/SATGF"),
     EMAIL_FROM_ADDRESS: z.string().email().default("nao-responda@seplag.mt.gov.br"),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().positive().optional(),

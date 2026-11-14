@@ -6,6 +6,7 @@ export interface PublicCaution {
   publicCode: string;
   requestId: string;
   userId: string;
+  driverId: string | null;
   vehicleId: string;
   status: CautionStatus;
   approvedByAdminId: string | null;
@@ -20,8 +21,13 @@ export interface PublicCaution {
   request?: {
     id: string;
     publicCode: string;
+    origin: string | null;
     destination: string;
     reason: string;
+    passengerCount: number | null;
+    passengerNames: string | null;
+    contactPhone: string | null;
+    requestingAgency: string | null;
   };
   user?: {
     id: string;
@@ -30,7 +36,14 @@ export interface PublicCaution {
     email: string;
     phone: string;
     sector: string;
+    agency: string | null;
   };
+  driver?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    email: string;
+  } | null;
   vehicle?: {
     id: string;
     brand: string;
@@ -44,6 +57,7 @@ export interface PublicCaution {
 type CautionWithRelations = Caution & {
   request?: VehicleRequest;
   user?: User;
+  driver?: User | null;
   vehicle?: Vehicle;
 };
 
@@ -52,6 +66,7 @@ export function toPublicCaution(
   options?: {
     includeRequest?: boolean;
     includeUser?: boolean;
+    includeDriver?: boolean;
     includeVehicle?: boolean;
   },
 ): PublicCaution {
@@ -60,6 +75,7 @@ export function toPublicCaution(
     publicCode: caution.publicCode,
     requestId: caution.requestId,
     userId: caution.userId,
+    driverId: caution.driverId,
     vehicleId: caution.vehicleId,
     status: caution.status,
     approvedByAdminId: caution.approvedByAdminId,
@@ -76,8 +92,13 @@ export function toPublicCaution(
     base.request = {
       id: caution.request.id,
       publicCode: caution.request.publicCode,
+      origin: caution.request.origin,
       destination: caution.request.destination,
       reason: caution.request.reason,
+      passengerCount: caution.request.passengerCount,
+      passengerNames: caution.request.passengerNames,
+      contactPhone: caution.request.contactPhone,
+      requestingAgency: caution.request.requestingAgency,
     };
   }
   if (options?.includeUser && caution.user) {
@@ -88,7 +109,18 @@ export function toPublicCaution(
       email: caution.user.email,
       phone: caution.user.phone,
       sector: caution.user.sector,
+      agency: caution.user.agency,
     };
+  }
+  if (options?.includeDriver) {
+    base.driver = caution.driver
+      ? {
+          id: caution.driver.id,
+          fullName: caution.driver.fullName,
+          phone: caution.driver.phone,
+          email: caution.driver.email,
+        }
+      : null;
   }
   if (options?.includeVehicle && caution.vehicle) {
     base.vehicle = {

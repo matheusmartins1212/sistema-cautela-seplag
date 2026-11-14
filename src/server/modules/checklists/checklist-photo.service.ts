@@ -86,7 +86,7 @@ export async function uploadPhoto(
   // Admin pode subir mesmo após envio? Por segurança/integridade, NÃO.
   // Permitimos apenas durante a edição do dono.
   if (checklist.userId !== actor.user.id) {
-    throw Errors.forbidden("Apenas o solicitante pode enviar fotos para este checklist.");
+    throw Errors.forbidden("Apenas o condutor responsável pode enviar fotos para este checklist.");
   }
   ensureChecklistWritable(checklist);
 

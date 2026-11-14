@@ -5,25 +5,30 @@ export interface NavItem {
   exact?: boolean;
 }
 
-/** Navegação da área do usuário comum. */
-export function buildUserNav(isAdmin: boolean): NavItem[] {
+/**
+ * Navegação da área do usuário. Todo servidor pode pedir transporte; quem é
+ * condutor da central vê também as viagens em que foi escalado.
+ */
+export function buildUserNav(opts: { isAdmin: boolean; isDriver: boolean }): NavItem[] {
   const items: NavItem[] = [
     { href: "/painel", label: "Início", exact: true },
-    { href: "/solicitacoes/nova", label: "Solicitar veículo", exact: true },
+    { href: "/solicitacoes/nova", label: "Solicitar transporte", exact: true },
     { href: "/solicitacoes", label: "Minhas solicitações" },
-    { href: "/cautelas", label: "Minhas cautelas" },
   ];
-  if (isAdmin) items.push({ href: "/admin", label: "Área administrativa", exact: true });
+  if (opts.isDriver) items.push({ href: "/cautelas", label: "Minhas viagens" });
+  if (opts.isAdmin) items.push({ href: "/admin", label: "Área da central", exact: true });
   return items;
 }
 
-/** Navegação da área administrativa. */
+/** Navegação da área administrativa (central). */
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Painel", exact: true },
   { href: "/admin/calendario", label: "Calendário" },
   { href: "/admin/solicitacoes", label: "Solicitações" },
-  { href: "/admin/cautelas", label: "Cautelas" },
+  { href: "/admin/cautelas", label: "Viagens" },
   { href: "/admin/veiculos", label: "Veículos" },
+  { href: "/admin/condutores", label: "Condutores" },
+  { href: "/admin/orgaos", label: "Órgãos" },
   { href: "/admin/avarias", label: "Avarias" },
   { href: "/admin/usuarios", label: "Usuários" },
   { href: "/admin/relatorios", label: "Relatórios" },

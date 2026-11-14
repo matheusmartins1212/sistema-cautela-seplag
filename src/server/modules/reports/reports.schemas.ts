@@ -9,7 +9,7 @@ export const reportRangeSchema = z.object({
 });
 
 export const reportExportSchema = reportRangeSchema.extend({
-  type: z.enum(["vehicle-usage", "by-sector", "damages"]),
+  type: z.enum(["vehicle-usage", "by-sector", "by-agency", "by-driver", "damages"]),
 });
 
 export type ReportExportQuery = z.infer<typeof reportExportSchema>;

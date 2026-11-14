@@ -37,22 +37,17 @@ export interface ConfirmationParams {
 }
 
 export function buildEmailConfirmation(p: ConfirmationParams): EmailMessage {
-  return build(
-    "EMAIL_CONFIRMATION",
-    p.to,
-    "Confirmação de cadastro - Sistema de Cautela de Veículos",
-    {
-      heading: "Confirme seu cadastro",
-      paragraphs: [
-        `Olá, ${escapeHtml(p.fullName)}.`,
-        "Recebemos uma solicitação de cadastro com este e-mail na plataforma. Para ativar sua conta, confirme seu endereço clicando no botão abaixo.",
-        `Por segurança, este link expira em ${escapeHtml(p.expiresInLabel)}.`,
-      ],
-      action: { label: "Confirmar cadastro", url: p.confirmationUrl },
-      footerNote:
-        "Se você não solicitou este cadastro, ignore esta mensagem — nenhuma conta será ativada.",
-    },
-  );
+  return build("EMAIL_CONFIRMATION", p.to, "Confirmação de cadastro - Central de Veículos", {
+    heading: "Confirme seu cadastro",
+    paragraphs: [
+      `Olá, ${escapeHtml(p.fullName)}.`,
+      "Recebemos uma solicitação de cadastro com este e-mail na plataforma. Para ativar sua conta, confirme seu endereço clicando no botão abaixo.",
+      `Por segurança, este link expira em ${escapeHtml(p.expiresInLabel)}.`,
+    ],
+    action: { label: "Confirmar cadastro", url: p.confirmationUrl },
+    footerNote:
+      "Se você não solicitou este cadastro, ignore esta mensagem — nenhuma conta será ativada.",
+  });
 }
 
 export interface PasswordResetParams {
@@ -63,7 +58,7 @@ export interface PasswordResetParams {
 }
 
 export function buildPasswordReset(p: PasswordResetParams): EmailMessage {
-  return build("PASSWORD_RESET", p.to, "Recuperação de senha - Sistema de Cautela de Veículos", {
+  return build("PASSWORD_RESET", p.to, "Recuperação de senha - Central de Veículos", {
     heading: "Redefinição de senha",
     paragraphs: [
       `Olá, ${escapeHtml(p.fullName)}.`,

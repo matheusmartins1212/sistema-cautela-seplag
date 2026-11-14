@@ -4,6 +4,7 @@ import {
   isValidEmailFormat,
   getEmailDomain,
   isAllowedInstitutionalEmail,
+  describeAllowedDomains,
 } from "./email-domain";
 
 const DOMAIN = "seplag.mt.gov.br";
@@ -47,6 +48,38 @@ describe("isAllowedInstitutionalEmail", () => {
     expect(isAllowedInstitutionalEmail(`usuario@seplag.mt.gov.br${ZWSP}.evil.com`, DOMAIN)).toBe(
       false,
     );
+  });
+});
+
+describe("isAllowedInstitutionalEmail com vários órgãos", () => {
+  const LIST = "seplag.mt.gov.br, *.mt.gov.br";
+
+  it("aceita qualquer domínio exato da lista", () => {
+    expect(
+      isAllowedInstitutionalEmail("a@seplag.mt.gov.br", "seplag.mt.gov.br,sefaz.mt.gov.br"),
+    ).toBe(true);
+    expect(
+      isAllowedInstitutionalEmail("a@sefaz.mt.gov.br", "seplag.mt.gov.br,sefaz.mt.gov.br"),
+    ).toBe(true);
+  });
+
+  it("curinga aceita subdomínios do sufixo", () => {
+    expect(isAllowedInstitutionalEmail("a@seduc.mt.gov.br", LIST)).toBe(true);
+    expect(isAllowedInstitutionalEmail("a@ses.saude.mt.gov.br", LIST)).toBe(true);
+  });
+
+  it("curinga não aceita o próprio sufixo nem rótulo colado", () => {
+    expect(isAllowedInstitutionalEmail("a@mt.gov.br", "*.mt.gov.br")).toBe(false);
+    expect(isAllowedInstitutionalEmail("a@evilmt.gov.br", "*.mt.gov.br")).toBe(false);
+  });
+
+  it("curinga continua barrando spoof por sufixo", () => {
+    expect(isAllowedInstitutionalEmail("a@seplag.mt.gov.br.fake.com", LIST)).toBe(false);
+    expect(isAllowedInstitutionalEmail("a@seplag.mt.gov.br@gmail.com", LIST)).toBe(false);
+  });
+
+  it("descreve os domínios aceitos", () => {
+    expect(describeAllowedDomains(LIST)).toBe("@seplag.mt.gov.br, @*.mt.gov.br");
   });
 });
 

@@ -21,6 +21,7 @@ import {
   VEHICLE_OUT_CAUTION_STATUSES,
   syncVehicleStatus,
 } from "@/server/modules/cautions/vehicle-sync";
+import { responsibleUserId } from "@/server/modules/cautions/responsible";
 import type {
   ReviewChecklistInput,
   SaveChecklistDraftInput,
@@ -29,8 +30,8 @@ import type {
 import { toAppWallClock } from "@/shared/time";
 
 const CHECKLIST_TYPE_LABEL: Record<ChecklistType, string> = {
-  RETIRADA: "retirada",
-  DEVOLUCAO: "devolução",
+  RETIRADA: "saída",
+  DEVOLUCAO: "retorno",
 };
 
 type ChecklistWithItems = Checklist & { items: ChecklistItem[] };
@@ -88,7 +89,7 @@ async function ensureVehicleIsBack(
   });
   if (blocking) {
     throw Errors.conflict(
-      `O veículo ainda não foi devolvido (cautela ${blocking.publicCode}). Aguarde a devolução para fazer a retirada.`,
+      `O veículo ainda não voltou da viagem ${blocking.publicCode}. Aguarde o retorno para iniciar a saída.`,
     );
   }
 }
@@ -127,7 +128,8 @@ export async function initializeChecklist(
       data: {
         cautionId: caution.id,
         vehicleId: caution.vehicleId,
-        userId: caution.userId,
+        // Quem preenche é o condutor escalado (ou o solicitante, em cautelas antigas).
+        userId: responsibleUserId(caution),
         type,
         status: ChecklistStatus.PENDENTE,
         items: {
@@ -171,16 +173,16 @@ async function loadCautionForUser(
     where: { id: cautionId },
     include: { vehicle: true },
   });
-  ensureFound(caution, "Cautela");
-  if ((caution as Caution).userId !== actor.user.id && !isAdmin(actor.user.role)) {
-    throw Errors.notFound("Cautela não encontrada.");
+  ensureFound(caution, "Viagem");
+  if (responsibleUserId(caution as Caution) !== actor.user.id && !isAdmin(actor.user.role)) {
+    throw Errors.notFound("Viagem não encontrada.");
   }
   return caution as Caution & { vehicle: Vehicle };
 }
 
 /**
- * Retorna (ou cria) o checklist do tipo informado para a cautela. Usuário comum
- * só consegue se for o dono da cautela. Admin pode iniciar/ler de qualquer.
+ * Retorna (ou cria) o checklist do tipo informado para a viagem. Usuário comum
+ * só consegue se for o condutor responsável. Admin pode iniciar/ler de qualquer.
  */
 export async function getOrInitChecklistForCaution(
   cautionId: string,
@@ -197,7 +199,7 @@ export async function getOrInitChecklistForCaution(
       caution.status !== CautionStatus.RETIRADA_EM_ANDAMENTO &&
       caution.status !== CautionStatus.EM_USO
     ) {
-      throw Errors.conflict("Checklist de retirada não está disponível para esta cautela.");
+      throw Errors.conflict("Checklist de saída não está disponível para esta viagem.");
     }
     if (
       caution.status === CautionStatus.AGUARDANDO_RETIRADA ||
@@ -215,20 +217,20 @@ export async function getOrInitChecklistForCaution(
       caution.status !== CautionStatus.FINALIZADA &&
       caution.status !== CautionStatus.FINALIZADA_COM_OBSERVACAO
     ) {
-      throw Errors.conflict(
-        "Checklist de devolução só fica disponível após o veículo estar em uso.",
-      );
+      throw Errors.conflict("Checklist de retorno só fica disponível depois da saída do veículo.");
     }
   }
   // Inicializa marcando como RETIRADA_EM_ANDAMENTO quando primeira abertura
   // pelo usuário do checklist de retirada.
   const checklist = await initializeChecklist(caution, type, actor, context);
 
+  // Só o responsável dá a largada; a central apenas consulta. (Um condutor que
+  // também seja administrador continua iniciando a própria viagem.)
   if (
     type === ChecklistType.RETIRADA &&
     caution.status === CautionStatus.AGUARDANDO_RETIRADA &&
     checklist.status === ChecklistStatus.PENDENTE &&
-    !isAdmin(actor.user.role)
+    checklist.userId === actor.user.id
   ) {
     await prisma.caution.update({
       where: { id: caution.id },

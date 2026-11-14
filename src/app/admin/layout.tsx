@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <AppShell
-      brandTitle="Painel administrativo"
+      brandTitle="Central de Veículos"
       user={{
         fullName: session.user.fullName,
         roleLabel: USER_ROLE_LABEL[session.user.role],

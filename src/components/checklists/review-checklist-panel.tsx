@@ -63,7 +63,7 @@ export function ReviewChecklistPanel({ checklistId }: Props) {
     >
       <p className="text-sm font-medium text-gray-800">
         {mode === "approve"
-          ? "Aprovar este checklist. Se for o de devolução, a cautela é finalizada e o veículo fica livre para novas cautelas."
+          ? "Aprovar este checklist. Se for o de retorno, a viagem é finalizada e o veículo fica livre para novas viagens."
           : "Pedir correção ao servidor. Ele recebe um aviso, ajusta o checklist e envia de novo."}
       </p>
       <Textarea

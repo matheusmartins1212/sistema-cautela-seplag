@@ -22,7 +22,7 @@ export default async function AdminRelatoriosPage({ searchParams }: Props) {
   const input = parsed.success ? parsed.data : {};
   const range = toDateRange(input);
 
-  const [{ vehicleUsage, bySector }, damages] = await Promise.all([
+  const [{ vehicleUsage, bySector, byAgency, byDriver }, damages] = await Promise.all([
     getCautionStats(range),
     getDamagesByVehicle(range),
   ]);
@@ -84,21 +84,39 @@ export default async function AdminRelatoriosPage({ searchParams }: Props) {
       </form>
 
       <ReportTable
-        title="Uso de veículos"
-        subtitle="Cautelas por veículo (mais utilizados primeiro)."
-        exportHref={exportHref("vehicle-usage")}
-        columns={["Veículo", "Placa", "Cautelas"]}
-        rows={vehicleUsage.map((r) => [r.label, formatPlate(r.plate), String(r.count)])}
-        emptyLabel="Sem cautelas no período."
+        title="Viagens por órgão"
+        subtitle="Quanto cada órgão usou a central no período."
+        exportHref={exportHref("by-agency")}
+        columns={["Órgão", "Viagens"]}
+        rows={byAgency.map((r) => [r.agency, String(r.count)])}
+        emptyLabel="Sem viagens no período."
       />
 
       <ReportTable
-        title="Cautelas por setor/lotação"
-        subtitle="Distribuição das cautelas por lotação."
+        title="Viagens por condutor"
+        subtitle="Carga de trabalho de cada condutor no período."
+        exportHref={exportHref("by-driver")}
+        columns={["Condutor", "Viagens"]}
+        rows={byDriver.map((r) => [r.driver, String(r.count)])}
+        emptyLabel="Sem viagens no período."
+      />
+
+      <ReportTable
+        title="Uso de veículos"
+        subtitle="Viagens por veículo (mais utilizados primeiro)."
+        exportHref={exportHref("vehicle-usage")}
+        columns={["Veículo", "Placa", "Viagens"]}
+        rows={vehicleUsage.map((r) => [r.label, formatPlate(r.plate), String(r.count)])}
+        emptyLabel="Sem viagens no período."
+      />
+
+      <ReportTable
+        title="Viagens por setor/lotação"
+        subtitle="Distribuição das viagens por lotação do solicitante."
         exportHref={exportHref("by-sector")}
-        columns={["Setor/Lotação", "Cautelas"]}
+        columns={["Setor/Lotação", "Viagens"]}
         rows={bySector.map((r) => [r.department, String(r.count)])}
-        emptyLabel="Sem cautelas no período."
+        emptyLabel="Sem viagens no período."
       />
 
       <ReportTable

@@ -25,21 +25,45 @@ interface VehicleOption {
 
 function optionNote(v: VehicleOption): string {
   if (v.conflictCode) return ` · ocupado no período (${v.conflictCode})`;
-  if (v.currentStatus !== "DISPONIVEL") return " · tem cautela em outra data";
+  if (v.currentStatus !== "DISPONIVEL") return " · tem viagem em outra data";
+  return "";
+}
+
+interface DriverOption {
+  id: string;
+  fullName: string;
+  phone: string;
+  driverLicenseCategory: string | null;
+  /** Viagem que ocupa o condutor no período; se houver, não dá para escolher. */
+  conflictCode: string | null;
+  licenseExpired: boolean;
+}
+
+function driverNote(d: DriverOption): string {
+  if (d.licenseExpired) return " · CNH vencida para esta data";
+  if (d.conflictCode) return ` · ocupado no período (${d.conflictCode})`;
   return "";
 }
 
 interface Props {
   requestId: string;
   availableVehicles: VehicleOption[];
+  availableDrivers: DriverOption[];
+  passengerCount: number | null;
 }
 
 type Mode = "approve" | "reject" | "cancel" | null;
 
-export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
+export function AdminDecisionPanel({
+  requestId,
+  availableVehicles,
+  availableDrivers,
+  passengerCount,
+}: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(null);
   const [vehicleId, setVehicleId] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [adminNotes, setAdminNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
@@ -50,6 +74,7 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
   function reset() {
     setMode(null);
     setVehicleId("");
+    setDriverId("");
     setAdminNotes("");
     setRejectionReason("");
     setCancellationReason("");
@@ -58,10 +83,12 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
   }
 
   const selectedVehicle = availableVehicles.find((v) => v.id === vehicleId);
+  const selectedDriver = availableDrivers.find((d) => d.id === driverId);
+  const canApprove = vehicleId !== "" && driverId !== "";
 
   function askApprove() {
-    if (!vehicleId) {
-      setError("Selecione o veículo a liberar.");
+    if (!canApprove) {
+      setError("Selecione o veículo e o condutor.");
       return;
     }
     setError(null);
@@ -78,14 +105,15 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
   }
 
   async function submitApprove() {
-    if (!vehicleId) {
-      setError("Selecione o veículo a liberar.");
+    if (!canApprove) {
+      setError("Selecione o veículo e o condutor.");
       return;
     }
     setLoading(true);
     setError(null);
     const result = await apiPost(`/api/admin/requests/${requestId}/approve`, {
       vehicleId,
+      driverId,
       adminNotes: adminNotes || null,
     });
     setLoading(false);
@@ -151,7 +179,12 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
   if (mode === "approve") {
     return (
       <div className="space-y-3 rounded-card border border-success/30 bg-success/5 p-4">
-        <p className="text-sm font-medium text-gray-800">Aprovar e selecionar veículo a liberar</p>
+        <p className="text-sm font-medium text-gray-800">
+          Aprovar e definir veículo e condutor
+          {passengerCount !== null && (
+            <span className="font-normal text-gray-600"> · {passengerCount} passageiro(s)</span>
+          )}
+        </p>
         <Select
           label="Veículo"
           name="vehicleId"
@@ -175,9 +208,37 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
         {availableVehicles.length > 0 && availableVehicles.every((v) => v.conflictCode) && (
           <Alert tone="warning">
             Todos os veículos já estão ocupados nesse período. Recuse a solicitação ou combine outra
-            data com o servidor.
+            data com o solicitante.
           </Alert>
         )}
+        <Select
+          label="Condutor"
+          name="driverId"
+          value={driverId}
+          onChange={(e) => setDriverId(e.target.value)}
+          required
+        >
+          <option value="" disabled>
+            Selecione um condutor…
+          </option>
+          {availableDrivers.length === 0 && (
+            <option disabled>Nenhum condutor habilitado. Cadastre em Condutores.</option>
+          )}
+          {availableDrivers.map((d) => (
+            <option key={d.id} value={d.id} disabled={d.conflictCode !== null || d.licenseExpired}>
+              {d.fullName}
+              {d.driverLicenseCategory ? ` · CNH ${d.driverLicenseCategory}` : ""}
+              {driverNote(d)}
+            </option>
+          ))}
+        </Select>
+        {availableDrivers.length > 0 &&
+          availableDrivers.every((d) => d.conflictCode !== null || d.licenseExpired) && (
+            <Alert tone="warning">
+              Nenhum condutor livre nesse período. Recuse a solicitação ou combine outro horário com
+              o solicitante.
+            </Alert>
+          )}
         <Textarea
           label="Observação administrativa (opcional)"
           name="adminNotes"
@@ -190,7 +251,7 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
           <Button variant="secondary" onClick={reset} disabled={loading}>
             Voltar
           </Button>
-          <Button onClick={askApprove} disabled={!vehicleId}>
+          <Button onClick={askApprove} disabled={!canApprove}>
             Confirmar aprovação
           </Button>
         </div>
@@ -205,7 +266,8 @@ export function AdminDecisionPanel({ requestId, availableVehicles }: Props) {
                   ? `${selectedVehicle.brand} ${selectedVehicle.model} (${selectedVehicle.plateFormatted})`
                   : ""}
               </strong>{" "}
-              será liberado, a cautela criada e o solicitante notificado por e-mail.
+              sai com o condutor <strong>{selectedDriver?.fullName ?? ""}</strong>. A viagem será
+              criada e o solicitante e o condutor serão avisados por e-mail.
             </>
           }
           confirmLabel="Aprovar"

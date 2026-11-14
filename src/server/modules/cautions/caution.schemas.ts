@@ -29,6 +29,7 @@ export const listMyCautionsQuerySchema = z.object({
 export const listAdminCautionsQuerySchema = z.object({
   status: STATUS_LIST.optional(),
   userId: z.string().trim().min(1).max(40).optional(),
+  driverId: z.string().trim().min(1).max(40).optional(),
   vehicleId: z.string().trim().min(1).max(40).optional(),
   search: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),

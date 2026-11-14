@@ -1,6 +1,7 @@
 import type { User } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
+import { listActiveAgencies } from "@/server/modules/agencies/agency.service";
 import { env } from "@/server/config/env";
 import { hashPassword, verifyPassword } from "@/server/lib/password";
 import { generateRawToken, hashToken } from "@/server/lib/tokens";
@@ -51,10 +52,26 @@ function getDummyHash(): Promise<string> {
 // Cadastro
 // ----------------------------------------------------------------------------
 
+/**
+ * Órgão do cadastro: obrigatório quando a central já tem órgãos cadastrados,
+ * e precisa ser um deles. Com o catálogo vazio, o campo é ignorado.
+ */
+async function resolveRegistrationAgency(
+  informed: string | null | undefined,
+): Promise<string | null> {
+  const catalog = await listActiveAgencies();
+  if (catalog.length === 0) return null;
+  if (!informed || !catalog.some((a) => a.name === informed)) {
+    throw Errors.validation("Selecione o seu órgão.", { agency: ["Selecione o seu órgão."] });
+  }
+  return informed;
+}
+
 export async function registerUser(
   input: RegisterInput,
   context?: RequestContext,
 ): Promise<{ userId: string }> {
+  const agency = await resolveRegistrationAgency(input.agency);
   const passwordHash = await hashPassword(input.password);
   const rawToken = generateRawToken();
   const tokenHash = hashToken(rawToken, "email");
@@ -71,6 +88,7 @@ export async function registerUser(
           phone: input.phone,
           sector: input.sector,
           department: input.department,
+          agency,
           passwordHash,
           role: "USER",
           status: "PENDING_EMAIL_VERIFICATION",

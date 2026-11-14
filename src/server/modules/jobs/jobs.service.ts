@@ -4,6 +4,7 @@ import { env } from "@/server/config/env";
 import { logger } from "@/server/lib/logger";
 import { recordAudit } from "@/server/lib/audit";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
+import { responsibleUserId } from "@/server/modules/cautions/responsible";
 import { sendTransactionalEmail } from "@/server/modules/email/email.service";
 import {
   buildOverdueAlert,
@@ -66,9 +67,11 @@ export async function markOverdueCautions(now: Date = new Date()): Promise<numbe
     select: {
       id: true,
       userId: true,
+      driverId: true,
       publicCode: true,
       plannedReturnAt: true,
       user: { select: { email: true, fullName: true } },
+      driver: { select: { email: true, fullName: true } },
       vehicle: { select: { brand: true, model: true, plate: true } },
     },
   });
@@ -78,18 +81,21 @@ export async function markOverdueCautions(now: Date = new Date()): Promise<numbe
       where: { id: c.id },
       data: { status: CautionStatus.ATRASADA },
     });
+    // O aviso vai para quem está com o carro: o condutor (ou o solicitante, em
+    // cautelas antigas sem condutor).
+    const responsible = c.driver ?? c.user;
     await createNotification({
-      userId: c.userId,
+      userId: responsibleUserId(c),
       type: "RETURN_OVERDUE",
-      title: "Devolução atrasada",
-      message: `A devolução da cautela ${c.publicCode} está atrasada. Regularize o quanto antes.`,
+      title: "Retorno atrasado",
+      message: `O retorno da viagem ${c.publicCode} está atrasado. Regularize o quanto antes.`,
       relatedEntityType: "Caution",
       relatedEntityId: c.id,
     });
     await sendTransactionalEmail(
       buildOverdueAlert({
-        to: c.user.email,
-        fullName: c.user.fullName,
+        to: responsible.email,
+        fullName: responsible.fullName,
         publicCode: c.publicCode,
         vehicleLabel: vehicleLabel(c.vehicle),
         returnDate: formatDateBr(c.plannedReturnAt),
@@ -130,15 +136,17 @@ export async function sendWithdrawalReminders(now: Date = new Date()): Promise<n
       publicCode: true,
       plannedWithdrawalAt: true,
       user: { select: { email: true, fullName: true } },
+      driver: { select: { email: true, fullName: true } },
       vehicle: { select: { brand: true, model: true, plate: true } },
     },
   });
 
   for (const c of candidates) {
+    const responsible = c.driver ?? c.user;
     await sendTransactionalEmail(
       buildWithdrawalReminder({
-        to: c.user.email,
-        fullName: c.user.fullName,
+        to: responsible.email,
+        fullName: responsible.fullName,
         publicCode: c.publicCode,
         vehicleLabel: vehicleLabel(c.vehicle),
         withdrawalDate: formatDateBr(c.plannedWithdrawalAt),
@@ -175,15 +183,17 @@ export async function sendReturnReminders(now: Date = new Date()): Promise<numbe
       publicCode: true,
       plannedReturnAt: true,
       user: { select: { email: true, fullName: true } },
+      driver: { select: { email: true, fullName: true } },
       vehicle: { select: { brand: true, model: true, plate: true } },
     },
   });
 
   for (const c of candidates) {
+    const responsible = c.driver ?? c.user;
     await sendTransactionalEmail(
       buildReturnReminder({
-        to: c.user.email,
-        fullName: c.user.fullName,
+        to: responsible.email,
+        fullName: responsible.fullName,
         publicCode: c.publicCode,
         vehicleLabel: vehicleLabel(c.vehicle),
         returnDate: formatDateBr(c.plannedReturnAt),

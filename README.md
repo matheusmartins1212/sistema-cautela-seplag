@@ -1,6 +1,8 @@
-# Sistema de Cautela de Veículos — SEPLAG / SATGF
+# Central de Veículos Compartilhados — SEPLAG / SATGF
 
-Plataforma institucional para controle completo de **cautela e agendamento de veículos oficiais** da Secretaria de Estado de Planejamento e Gestão de Mato Grosso (SEPLAG-MT). Substitui o fluxo anterior baseado em Google Forms, planilhas e sistema de agendamento, centralizando cadastro, solicitação, aprovação, checklists de retirada/devolução, fotos, avarias, histórico, auditoria e notificações em uma única plataforma segura e auditável.
+Plataforma institucional da **central de veículos compartilhados** da Secretaria de Estado de Planejamento e Gestão de Mato Grosso (SEPLAG-MT). Os órgãos solicitam o transporte, a SATGF aprova, define o veículo e aciona o condutor, que preenche os checklists de saída e retorno. Reúne cadastro, solicitação, aprovação, escala de condutores, checklists com fotos, avarias, histórico, auditoria e notificações em uma única plataforma segura e auditável.
+
+> 🔄 O sistema nasceu como **cautela de veículos** e evoluiu para central. Veja o fluxo atual e as decisões em [`docs/DECISOES-CENTRAL.md`](./docs/DECISOES-CENTRAL.md).
 
 > ⚠️ Sistema interno de uso restrito e auditado. Trate dados pessoais e funcionais (CPF, matrícula, telefone) com rigor.
 
@@ -86,7 +88,7 @@ npm run prisma:migrate   # cria/aplica migrations em desenvolvimento
 npm run db:seed
 ```
 
-Cria: motivos de cautela, lotações/setores, locais de estacionamento, templates de itens de checklist e o **super administrador** (a partir das variáveis `SUPER_ADMIN_*`).
+Cria: finalidades de viagem, lotações/setores, órgãos atendidos, locais de estacionamento, templates de itens de checklist e o **super administrador** (a partir das variáveis `SUPER_ADMIN_*`).
 
 ### 5. Rodar em desenvolvimento
 
@@ -135,4 +137,5 @@ npm run dev          # http://localhost:3000
 - [x] **Fase 6 — Checklists**: retirada/devolução, fotos, comparação automática, alertas.
 - [x] **Fase 7 — Painel administrativo**: dashboard, calendário, relatórios.
 - [x] **Fase 8 — Auditoria & hardening**: testes de segurança, observabilidade, docs finais.
+- [ ] **Fase 9 — Central de veículos compartilhados** *(em andamento)*: órgãos solicitam, a central aloca veículo e condutor, condutor faz os checklists. Ver [`docs/DECISOES-CENTRAL.md`](./docs/DECISOES-CENTRAL.md).
 

@@ -71,7 +71,7 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
           href={`/admin/cautelas/${c.cautionId}`}
           className="text-sm text-institutional-700 hover:underline"
         >
-          ← Cautela
+          ← Viagem
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-institutional-900">
@@ -161,7 +161,7 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
       {showDivergencePanel && comparison && (
         <section className="rounded-card border border-warning/40 bg-warning/5 p-6 shadow-card">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-warning">
-            Comparação retirada × devolução
+            Comparação saída × retorno
           </h2>
           <ul className="space-y-2 text-sm text-gray-800">
             {comparison.fuelDeteriorated && (
@@ -173,9 +173,9 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
             )}
             {comparison.mileageInconsistent && (
               <li>
-                🛞 Quilometragem inconsistente: a devolução marca{" "}
+                🛞 Quilometragem inconsistente: o retorno marca{" "}
                 <strong>{Math.abs(comparison.mileageDelta ?? 0).toLocaleString("pt-BR")}</strong> km
-                a menos que a retirada.
+                a menos que a saída.
               </li>
             )}
             {comparison.mileageDelta != null && !comparison.mileageInconsistent && (
@@ -185,7 +185,7 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
               </li>
             )}
             {comparison.damageDeclaredOnReturn && (
-              <li>⚠️ Avaria declarada pelo usuário na devolução.</li>
+              <li>⚠️ Avaria declarada pelo condutor no retorno.</li>
             )}
             {comparison.itemsDeteriorated.length > 0 && (
               <li>

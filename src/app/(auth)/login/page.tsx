@@ -69,7 +69,7 @@ function LoginForm() {
           name="email"
           type="email"
           autoComplete="email"
-          placeholder="nome@seplag.mt.gov.br"
+          placeholder="nome@orgao.mt.gov.br"
           required
         />
         <PasswordField label="Senha" name="password" autoComplete="current-password" required />

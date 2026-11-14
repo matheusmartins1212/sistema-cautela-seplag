@@ -104,10 +104,11 @@ export async function getCalendarMonth(
 export type CalendarDayCaution = Caution & {
   vehicle: Vehicle;
   user: Pick<User, "fullName" | "registrationNumber">;
-  request: Pick<VehicleRequest, "shift" | "destination">;
+  driver: Pick<User, "fullName"> | null;
+  request: Pick<VehicleRequest, "shift" | "destination" | "requestingAgency">;
 };
 
-/** Cautelas que ocupam um dia específico (para o detalhamento do dia). */
+/** Viagens que ocupam um dia específico (para o detalhamento do dia). */
 export async function getCautionsOnDay(
   date: string,
   filters: CalendarFilters = {},
@@ -122,7 +123,8 @@ export async function getCautionsOnDay(
     include: {
       vehicle: true,
       user: { select: { fullName: true, registrationNumber: true } },
-      request: { select: { shift: true, destination: true } },
+      driver: { select: { fullName: true } },
+      request: { select: { shift: true, destination: true, requestingAgency: true } },
     },
   }) as unknown as Promise<CalendarDayCaution[]>;
 }

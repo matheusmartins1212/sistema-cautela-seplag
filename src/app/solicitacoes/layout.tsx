@@ -11,13 +11,16 @@ export default async function SolicitacoesLayout({ children }: { children: React
 
   return (
     <AppShell
-      brandTitle="Cautela de Veículos"
+      brandTitle="Central de Veículos"
       contentMaxWidth="5xl"
       user={{
         fullName: session.user.fullName,
         roleLabel: USER_ROLE_LABEL[session.user.role],
       }}
-      nav={buildUserNav(isAdmin(session.user.role))}
+      nav={buildUserNav({
+        isAdmin: isAdmin(session.user.role),
+        isDriver: session.user.isDriver,
+      })}
     >
       {children}
     </AppShell>

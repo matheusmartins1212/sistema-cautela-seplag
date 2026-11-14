@@ -22,7 +22,7 @@ function formatDateTimeBr(iso: string): string {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
-export default async function MinhasCautelasPage({ searchParams }: Props) {
+export default async function MinhasViagensPage({ searchParams }: Props) {
   const session = await getCurrentSession();
   if (!session) redirect("/login?next=/cautelas");
 
@@ -48,9 +48,9 @@ export default async function MinhasCautelasPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-institutional-900">Minhas cautelas</h1>
+        <h1 className="text-2xl font-bold text-institutional-900">Minhas viagens</h1>
         <p className="mt-1 text-sm text-gray-600">
-          {total} cautela(s) — vinculadas às suas solicitações aprovadas.
+          {total} viagem(ns) em que você foi escalado como condutor.
         </p>
       </div>
 
@@ -88,18 +88,15 @@ export default async function MinhasCautelasPage({ searchParams }: Props) {
       <ul className="space-y-3 sm:hidden">
         {items.length === 0 && (
           <li className="rounded-card border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 shadow-card">
-            Você ainda não possui cautelas vinculadas.{" "}
-            <Link
-              href="/solicitacoes/nova"
-              className="font-medium text-institutional-700 hover:underline"
-            >
-              Criar uma solicitação
-            </Link>
-            .
+            Nenhuma viagem escalada para você.
           </li>
         )}
         {items.map((c) => {
-          const cau = toPublicCaution(c, { includeRequest: true, includeVehicle: true });
+          const cau = toPublicCaution(c, {
+            includeRequest: true,
+            includeUser: true,
+            includeVehicle: true,
+          });
           return (
             <li key={cau.id}>
               <Link
@@ -114,12 +111,16 @@ export default async function MinhasCautelasPage({ searchParams }: Props) {
                     <CautionStatusBadge status={cau.status} />
                   </span>
                 </div>
-                {cau.vehicle && (
+                {cau.request && (
                   <p className="mt-2 text-sm font-medium text-gray-900">
+                    {cau.request.origin ? `${cau.request.origin} → ` : ""}
+                    {cau.request.destination}
+                  </p>
+                )}
+                {cau.vehicle && (
+                  <p className="mt-1 text-xs text-gray-600">
                     {cau.vehicle.brand} {cau.vehicle.model}{" "}
-                    <span className="font-mono text-xs font-normal text-gray-500">
-                      · {cau.vehicle.plateFormatted}
-                    </span>
+                    <span className="font-mono">· {cau.vehicle.plateFormatted}</span>
                   </p>
                 )}
                 <p className="mt-1 text-xs text-gray-600">
@@ -133,10 +134,11 @@ export default async function MinhasCautelasPage({ searchParams }: Props) {
       </ul>
 
       <div className="hidden overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card sm:block">
-        <table className="w-full min-w-[40rem] text-sm">
+        <table className="w-full min-w-[48rem] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
             <tr>
               <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Trajeto</th>
               <th className="px-4 py-3">Veículo</th>
               <th className="px-4 py-3">Período previsto</th>
               <th className="px-4 py-3">Status</th>
@@ -146,24 +148,36 @@ export default async function MinhasCautelasPage({ searchParams }: Props) {
           <tbody className="divide-y divide-gray-100">
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-500">
-                  Você ainda não possui cautelas vinculadas.{" "}
-                  <Link
-                    href="/solicitacoes/nova"
-                    className="font-medium text-institutional-700 hover:underline"
-                  >
-                    Criar uma solicitação
-                  </Link>
-                  .
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
+                  Nenhuma viagem escalada para você.
                 </td>
               </tr>
             )}
             {items.map((c) => {
-              const cau = toPublicCaution(c, { includeRequest: true, includeVehicle: true });
+              const cau = toPublicCaution(c, {
+                includeRequest: true,
+                includeUser: true,
+                includeVehicle: true,
+              });
               return (
                 <tr key={cau.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-xs font-semibold text-institutional-900">
                     {cau.publicCode}
+                  </td>
+                  <td className="px-4 py-3">
+                    {cau.request ? (
+                      <>
+                        {cau.request.origin && (
+                          <div className="text-xs text-gray-500">de {cau.request.origin}</div>
+                        )}
+                        <div className="font-medium text-gray-900">{cau.request.destination}</div>
+                        <div className="text-xs text-gray-500">
+                          {cau.request.requestingAgency ?? cau.user?.fullName ?? ""}
+                        </div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {cau.vehicle ? (

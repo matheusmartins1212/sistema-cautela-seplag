@@ -15,6 +15,10 @@ export interface PublicUser {
   phone: string;
   sector: string;
   department: string;
+  agency: string | null;
+  isDriver: boolean;
+  driverLicenseCategory: string | null;
+  driverLicenseExpiresAt: string | null; // yyyy-mm-dd
   role: UserRole;
   status: UserStatus;
   emailVerifiedAt: string | null;
@@ -31,6 +35,10 @@ export function toPublicUser(user: Omit<User, "passwordHash">): PublicUser {
     phone: user.phone,
     sector: user.sector,
     department: user.department,
+    agency: user.agency,
+    isDriver: user.isDriver,
+    driverLicenseCategory: user.driverLicenseCategory,
+    driverLicenseExpiresAt: user.driverLicenseExpiresAt?.toISOString().slice(0, 10) ?? null,
     role: user.role,
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
