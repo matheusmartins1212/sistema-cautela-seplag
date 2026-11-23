@@ -19,7 +19,7 @@ const baseInput = {
   origin: "SEPLAG - CPA",
   destination: "Rondonópolis - MT",
   reason: "Operação Energisa",
-  passengerCount: 2,
+  passengers: ["Ana Paula Souza", "Bruno Lima"],
 };
 
 describe("createRequestSchema", () => {
@@ -106,7 +106,8 @@ describe("createRequestSchema", () => {
 
   it("com condutor: exige local de saída e passageiros", () => {
     expect(createRequestSchema.safeParse({ ...baseInput, origin: "" }).success).toBe(false);
-    expect(createRequestSchema.safeParse({ ...baseInput, passengerCount: "" }).success).toBe(false);
+    expect(createRequestSchema.safeParse({ ...baseInput, passengers: [] }).success).toBe(false);
+    expect(createRequestSchema.safeParse({ ...baseInput, passengers: null }).success).toBe(false);
   });
 
   it("sem condutor: local de saída e passageiros são dispensados", () => {
@@ -114,38 +115,52 @@ describe("createRequestSchema", () => {
       ...baseInput,
       withDriver: false,
       origin: "",
-      passengerCount: "",
+      passengers: null,
     });
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.origin).toBeNull();
-      expect(r.data.passengerCount).toBeUndefined();
+      expect(r.data.passengers).toBeNull();
     }
   });
 
   it("modalidade padrão é sem condutor (cautela tradicional)", () => {
     const { withDriver: _ignored, ...rest } = baseInput;
-    const r = createRequestSchema.parse({ ...rest, origin: null, passengerCount: null });
+    const r = createRequestSchema.parse({ ...rest, origin: null, passengers: null });
     expect(r.withDriver).toBe(false);
   });
 
-  it("exige ao menos 1 passageiro e aceita número vindo como texto", () => {
-    expect(createRequestSchema.safeParse({ ...baseInput, passengerCount: 0 }).success).toBe(false);
-    expect(createRequestSchema.safeParse({ ...baseInput, passengerCount: 2.5 }).success).toBe(
+  it("cada passageiro precisa de nome completo, com espaços normalizados", () => {
+    const vazio = createRequestSchema.safeParse({ ...baseInput, passengers: ["Ana Souza", "  "] });
+    expect(vazio.success).toBe(false);
+    if (!vazio.success) expect(vazio.error.issues[0]!.path).toEqual(["passengers", 1]);
+    expect(createRequestSchema.safeParse({ ...baseInput, passengers: ["Ana"] }).success).toBe(
       false,
     );
-    const r = createRequestSchema.parse({ ...baseInput, passengerCount: "4" });
-    expect(r.passengerCount).toBe(4);
+    const r = createRequestSchema.parse({ ...baseInput, passengers: ["  Ana   Paula  Souza "] });
+    expect(r.passengers).toEqual(["Ana Paula Souza"]);
+  });
+
+  it("limita a 60 passageiros", () => {
+    const muitos = Array.from({ length: 61 }, (_, i) => `Pessoa Numero${i}`);
+    expect(createRequestSchema.safeParse({ ...baseInput, passengers: muitos }).success).toBe(false);
+  });
+
+  it("finalidade é uma descrição livre", () => {
+    expect(createRequestSchema.safeParse({ ...baseInput, reason: "ok" }).success).toBe(false);
+    const longa = "Reunião de acompanhamento. ".repeat(30).trim();
+    expect(createRequestSchema.parse({ ...baseInput, reason: longa }).reason).toBe(longa);
+    expect(createRequestSchema.safeParse({ ...baseInput, reason: "x".repeat(1001) }).success).toBe(
+      false,
+    );
   });
 
   it("converte campos opcionais vazios em null", () => {
     const r = createRequestSchema.parse({
       ...baseInput,
-      passengerNames: " ",
       contactPhone: "",
       agency: "",
     });
-    expect(r.passengerNames).toBeNull();
     expect(r.contactPhone).toBeNull();
     expect(r.agency).toBeNull();
   });

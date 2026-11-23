@@ -125,7 +125,7 @@ const baseInput = {
   origin: "SEPLAG - Centro Político Administrativo",
   destination: "Rondonópolis",
   reason: "Operação Energisa",
-  passengerCount: 3,
+  passengers: ["Ana Paula Souza", "Bruno Lima", "Carla Dias"],
   withDriver: true,
   termNumber: null,
 };
@@ -216,9 +216,20 @@ describe("createRequest (dados do transporte)", () => {
     const data = createdData();
     expect(data.origin).toBe(baseInput.origin);
     expect(data.passengerCount).toBe(3);
+    expect(data.passengerNames).toBe("Ana Paula Souza\nBruno Lima\nCarla Dias");
     expect(data.shift).toBe("VESPERTINO");
     // Sem telefone informado, usa o do cadastro.
     expect(data.contactPhone).toBe(baseUser.phone);
+  });
+
+  it("pedido sem condutor grava sem passageiros", async () => {
+    await createRequest(
+      { ...baseInput, withDriver: false, origin: null, passengers: null },
+      baseActor,
+    );
+    const data = createdData();
+    expect(data.passengerCount).toBeNull();
+    expect(data.passengerNames).toBeNull();
   });
 
   it("usa o órgão do cadastro do solicitante, ignorando o informado", async () => {

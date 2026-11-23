@@ -25,16 +25,26 @@ export function TransportDetails({ r }: { r: PublicVehicleRequest }) {
       <Row label="Destino" value={r.destination} />
       {r.passengerCount !== null && <Row label="Passageiros" value={String(r.passengerCount)} />}
       {r.contactPhone && <Row label="Contato no dia" value={formatPhoneBr(r.contactPhone)} />}
-      <Row label="Finalidade" value={r.reason} />
       {r.termNumber && <Row label="Número do termo" value={r.termNumber} />}
       {r.passengerNames && (
         <div className="sm:col-span-2">
           <dt className="text-xs uppercase text-gray-500">Nomes dos passageiros</dt>
-          <dd className="mt-0.5 whitespace-pre-line font-medium text-gray-900">
-            {r.passengerNames}
+          <dd className="mt-0.5 font-medium text-gray-900">
+            <ol className="list-decimal space-y-0.5 pl-5">
+              {r.passengerNames
+                .split("\n")
+                .filter((n) => n.trim())
+                .map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+            </ol>
           </dd>
         </div>
       )}
+      <div className="sm:col-span-2">
+        <dt className="text-xs uppercase text-gray-500">Finalidade</dt>
+        <dd className="mt-0.5 whitespace-pre-line font-medium text-gray-900">{r.reason}</dd>
+      </div>
     </dl>
   );
 }

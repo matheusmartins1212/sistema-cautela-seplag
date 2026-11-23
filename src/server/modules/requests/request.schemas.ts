@@ -30,6 +30,18 @@ const isoDate = z
 
 const time = z.string().trim().regex(HHMM_REGEX, "Use o formato HH:mm.");
 
+/** Nome completo de passageiro: espaços normalizados, nome e sobrenome. */
+const passengerName = z
+  .string({ invalid_type_error: "Informe o nome completo do passageiro." })
+  .transform((v) => v.trim().replace(/\s+/g, " "))
+  .pipe(
+    z
+      .string()
+      .min(1, "Informe o nome completo do passageiro.")
+      .max(120, "Nome muito longo.")
+      .refine((v) => v.split(" ").length >= 2, "Informe o nome completo (nome e sobrenome)."),
+  );
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -66,23 +78,23 @@ export const createRequestSchema = z
     withDriver: z.boolean().default(false),
     origin: optionalText(200),
     destination: z.string().trim().min(2, "Informe o destino.").max(200),
-    reason: z.string().trim().min(2, "Informe a finalidade da viagem.").max(200),
-    passengerCount: z.preprocess(
-      (v) => (v === "" || v === null || v === undefined ? undefined : v),
-      z.coerce
-        .number({ invalid_type_error: "Informe o número de passageiros." })
-        .int("Use um número inteiro.")
-        .min(1, "Informe ao menos 1 passageiro.")
-        .max(60, "Número de passageiros acima do permitido.")
-        .optional(),
-    ),
-    passengerNames: optionalText(1000),
+    reason: z
+      .string()
+      .trim()
+      .min(3, "Descreva a finalidade da viagem.")
+      .max(1000, "Descrição muito longa (máximo de 1000 caracteres)."),
+    // Um nome completo por passageiro; a quantidade é o tamanho da lista.
+    passengers: z
+      .array(passengerName)
+      .max(60, "Máximo de 60 passageiros por solicitação.")
+      .nullable()
+      .optional(),
     contactPhone: optionalText(20),
     agency: optionalText(150),
     termNumber: optionalText(60),
   })
   .superRefine((data, ctx) => {
-    // Com condutor, a central precisa saber onde buscar e quantas pessoas levar.
+    // Com condutor, a central precisa saber onde buscar e quem vai.
     if (data.withDriver) {
       if (!data.origin || data.origin.length < 2) {
         ctx.addIssue({
@@ -91,11 +103,11 @@ export const createRequestSchema = z
           message: "Informe o local de saída.",
         });
       }
-      if (data.passengerCount === undefined) {
+      if (!data.passengers || data.passengers.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["passengerCount"],
-          message: "Informe o número de passageiros.",
+          path: ["passengers"],
+          message: "Informe ao menos 1 passageiro.",
         });
       }
     }

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/server/db/prisma";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { listActiveAgencies } from "@/server/modules/agencies/agency.service";
 import { RequestForm } from "@/components/requests/request-form";
@@ -9,14 +8,7 @@ export default async function NovaSolicitacaoPage() {
   const session = await getCurrentSession();
   if (!session) redirect("/login?next=/solicitacoes/nova");
 
-  const [reasons, agencies] = await Promise.all([
-    prisma.cautionReason.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true },
-    }),
-    session.user.agency ? Promise.resolve([]) : listActiveAgencies(),
-  ]);
+  const agencies = session.user.agency ? [] : await listActiveAgencies();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -34,7 +26,6 @@ export default async function NovaSolicitacaoPage() {
 
       <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
         <RequestForm
-          reasons={reasons}
           userAgency={session.user.agency}
           agencies={agencies}
           defaultPhone={session.user.phone}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -12,7 +12,6 @@ import { apiPost } from "@/lib/api-client";
 type FieldErrors = Record<string, string[]>;
 
 interface Props {
-  reasons: { id: string; name: string }[];
   /** Órgão do cadastro do solicitante; nulo em contas antigas. */
   userAgency: string | null;
   /** Órgãos ativos, para contas antigas escolherem o seu. */
@@ -25,25 +24,64 @@ interface ApiResponse {
   request: { id: string; publicCode: string };
 }
 
-const OUTRO = "Outro";
+const MAX_PASSENGERS = 60;
+
+interface PassengerRow {
+  key: number;
+  name: string;
+}
+
+function normalizeName(v: string): string {
+  return v.trim().replace(/\s+/g, " ");
+}
+
+/** Mesma regra do backend: cada passageiro com nome e sobrenome. */
+function passengerErrors(rows: PassengerRow[]): FieldErrors {
+  const errs: FieldErrors = {};
+  rows.forEach((p, i) => {
+    const n = normalizeName(p.name);
+    if (!n) errs[`passengers.${i}`] = ["Informe o nome completo do passageiro."];
+    else if (n.split(" ").length < 2)
+      errs[`passengers.${i}`] = ["Informe o nome completo (nome e sobrenome)."];
+  });
+  return errs;
+}
 
 /**
  * Pedido à central, em duas modalidades:
  * - com condutor: a central envia veículo e motorista; o pedido informa de
- *   onde sai e quantas pessoas vão;
+ *   onde sai e o nome completo de cada passageiro (começa com 1);
  * - sem condutor: cautela tradicional, o próprio servidor retira e dirige.
  */
-export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Props) {
+export function RequestForm({ userAgency, agencies, defaultPhone }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [selectedReason, setSelectedReason] = useState<string>("");
-  const [otherReason, setOtherReason] = useState<string>("");
   const [withDriver, setWithDriver] = useState<boolean | null>(null);
+  const [passengers, setPassengers] = useState<PassengerRow[]>([{ key: 0, name: "" }]);
+  const [focusKey, setFocusKey] = useState<number | null>(null);
+  const nextKey = useRef(1);
 
-  const reasonNeedsCustom = selectedReason === OUTRO;
-  const finalReason = reasonNeedsCustom ? otherReason : selectedReason;
+  function addPassenger() {
+    if (passengers.length >= MAX_PASSENGERS) return;
+    const key = nextKey.current++;
+    setPassengers((rows) => [...rows, { key, name: "" }]);
+    setFocusKey(key);
+  }
+
+  function removePassenger(key: number) {
+    setPassengers((rows) => (rows.length > 1 ? rows.filter((r) => r.key !== key) : rows));
+    // Os erros são por posição; refeitos no próximo envio.
+    setFieldErrors(({ passengers: _list, ...rest }) =>
+      Object.fromEntries(Object.entries(rest).filter(([k]) => !k.startsWith("passengers."))),
+    );
+  }
+
+  function renamePassenger(key: number, name: string) {
+    setPassengers((rows) => rows.map((r) => (r.key === key ? { ...r, name } : r)));
+  }
+
   const mustPickAgency = userAgency === null && agencies.length > 0;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -54,6 +92,14 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
       setFieldErrors({ withDriver: ["Escolha como será a viagem."] });
       setError("Escolha como será a viagem: com condutor da central ou você mesmo dirigindo.");
       return;
+    }
+    if (withDriver) {
+      const errs = passengerErrors(passengers);
+      if (Object.keys(errs).length > 0) {
+        setFieldErrors(errs);
+        setError("Informe o nome completo de cada passageiro.");
+        return;
+      }
     }
     setLoading(true);
 
@@ -66,9 +112,8 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
       withDriver,
       origin: withDriver ? f.get("origin") : null,
       destination: f.get("destination"),
-      passengerCount: withDriver ? f.get("passengerCount") : null,
-      passengerNames: withDriver ? f.get("passengerNames") || null : null,
-      reason: finalReason,
+      passengers: withDriver ? passengers.map((p) => normalizeName(p.name)) : null,
+      reason: f.get("reason"),
       contactPhone: f.get("contactPhone") || null,
       agency: mustPickAgency ? f.get("agency") : null,
     };
@@ -206,23 +251,62 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
         />
       </fieldset>
 
+      {withDriver && (
+        <fieldset className="space-y-3">
+          <legend className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
+            Passageiros
+          </legend>
+          <p className="text-xs text-gray-500">
+            Informe o nome completo de cada pessoa que vai no veículo, inclusive você, se for
+            viajar.
+          </p>
+          <ol className="space-y-3">
+            {passengers.map((p, i) => (
+              <li key={p.key} className="relative">
+                <Field
+                  label={`Passageiro ${i + 1}`}
+                  name={`passenger-${p.key}`}
+                  placeholder="Nome completo"
+                  autoComplete="off"
+                  value={p.name}
+                  onChange={(e) => renamePassenger(p.key, e.target.value)}
+                  autoFocus={p.key === focusKey}
+                  maxLength={120}
+                  errors={fieldErrors[`passengers.${i}`]}
+                  required
+                />
+                {passengers.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePassenger(p.key)}
+                    className="absolute right-0 top-0 text-xs font-medium text-danger hover:underline"
+                    aria-label={`Remover passageiro ${i + 1}`}
+                  >
+                    Remover
+                  </button>
+                )}
+              </li>
+            ))}
+          </ol>
+          {fieldErrors.passengers && (
+            <p className="text-xs text-danger">{fieldErrors.passengers[0]}</p>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={addPassenger}
+            disabled={passengers.length >= MAX_PASSENGERS}
+          >
+            + Adicionar passageiro
+          </Button>
+        </fieldset>
+      )}
+
       <fieldset className="space-y-4">
         <legend className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          {withDriver ? "Passageiros e finalidade" : "Contato e finalidade"}
+          Contato e finalidade
         </legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {withDriver && (
-            <Field
-              label="Número de passageiros"
-              name="passengerCount"
-              type="number"
-              min={1}
-              max={60}
-              defaultValue={1}
-              errors={fieldErrors.passengerCount}
-              required
-            />
-          )}
           <Field
             label="Telefone de contato no dia"
             name="contactPhone"
@@ -236,43 +320,16 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
             errors={fieldErrors.contactPhone}
           />
         </div>
-        {withDriver && (
-          <Textarea
-            label="Nomes dos passageiros (opcional)"
-            name="passengerNames"
-            rows={3}
-            hint="Um por linha, se já souber quem vai."
-            errors={fieldErrors.passengerNames}
-          />
-        )}
-        <Select
+        <Textarea
           label="Finalidade da viagem"
-          name="reasonSelect"
-          value={selectedReason}
-          onChange={(e) => setSelectedReason(e.target.value)}
+          name="reason"
+          rows={3}
+          maxLength={1000}
+          placeholder="Ex.: Reunião com a equipe regional para acompanhamento do contrato de manutenção."
+          hint="Descreva o motivo da viagem."
           errors={fieldErrors.reason}
           required
-        >
-          <option value="" disabled>
-            Selecione…
-          </option>
-          {reasons.map((r) => (
-            <option key={r.id} value={r.name}>
-              {r.name}
-            </option>
-          ))}
-        </Select>
-        {reasonNeedsCustom && (
-          <Textarea
-            label="Especificar finalidade"
-            name="otherReason"
-            value={otherReason}
-            onChange={(e) => setOtherReason(e.target.value)}
-            rows={2}
-            required
-            hint="Descreva a finalidade quando 'Outro' for selecionado."
-          />
-        )}
+        />
       </fieldset>
 
       <div className="flex items-center justify-end gap-3 pt-2">

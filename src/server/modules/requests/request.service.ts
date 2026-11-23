@@ -114,6 +114,7 @@ export async function createRequest(
   const withdrawalDate = parseIsoDate(input.withdrawalDate);
   const returnDate = parseIsoDate(input.returnDate);
   const requestingAgency = await resolveRequesterAgency(actor, input.agency);
+  const passengers = input.passengers ?? [];
 
   let created: VehicleRequest | null = null;
   let attempts = 0;
@@ -134,8 +135,9 @@ export async function createRequest(
           origin: input.origin ?? null,
           destination: input.destination,
           reason: input.reason,
-          passengerCount: input.passengerCount ?? null,
-          passengerNames: input.passengerNames ?? null,
+          // Lista de nomes vira contagem + um nome por linha (colunas existentes).
+          passengerCount: passengers.length > 0 ? passengers.length : null,
+          passengerNames: passengers.length > 0 ? passengers.join("\n") : null,
           contactPhone: input.contactPhone ?? actor.user.phone,
           requestingAgency,
           termNumber: input.termNumber ?? null,
