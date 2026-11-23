@@ -9,16 +9,26 @@ import { USER_ROLE_LABEL } from "@/components/users/labels";
 import { UserActions } from "@/components/users/user-actions";
 import { DriverProfileForm } from "@/components/drivers/driver-profile-form";
 import { formatPhoneBr } from "@/shared/phone";
+import { AccountHistory } from "@/components/users/account-history";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default async function AdminUsuarioDetailPage({ params }: Props) {
+export default async function AdminUsuarioDetailPage({ params, searchParams }: Props) {
   const session = await getCurrentSession();
   if (!session) redirect("/login?next=/admin/usuarios");
 
   const { id } = await params;
+  const sp = await searchParams;
+  const historyGroup = typeof sp.acoes === "string" ? sp.acoes : undefined;
+  const historyPage = Math.max(
+    1,
+    Number.parseInt(typeof sp.pagina === "string" ? sp.pagina : "1", 10) || 1,
+  );
   const record = await getUserByIdAdmin(id).catch(() => null);
   if (!record) notFound();
 
@@ -85,6 +95,13 @@ export default async function AdminUsuarioDetailPage({ params }: Props) {
           )}
         </section>
       </div>
+
+      <AccountHistory
+        userId={user.id}
+        basePath={`/admin/usuarios/${user.id}`}
+        group={historyGroup}
+        page={historyPage}
+      />
     </div>
   );
 }

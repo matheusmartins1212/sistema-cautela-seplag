@@ -19,6 +19,10 @@ export async function apiPatch<T = unknown>(path: string, body?: unknown): Promi
   return request<T>(path, "PATCH", body);
 }
 
+export async function apiDelete<T = unknown>(path: string): Promise<ApiResult<T>> {
+  return request<T>(path, "DELETE");
+}
+
 export async function apiGet<T = unknown>(path: string): Promise<ApiResult<T>> {
   return request<T>(path, "GET");
 }

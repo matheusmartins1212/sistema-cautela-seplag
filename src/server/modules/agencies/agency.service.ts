@@ -82,3 +82,39 @@ export async function updateAgency(
   });
   return updated;
 }
+
+/**
+ * Remove o órgão do catálogo. Cadastros e solicitações guardam o nome como
+ * texto, então o histórico deles não muda. A remoção fica na auditoria com o
+ * nome e quantos registros ainda citavam o órgão.
+ */
+export async function deleteAgency(
+  id: string,
+  actor: SessionUser,
+  context?: RequestContext,
+): Promise<void> {
+  const current = await prisma.agency.findUnique({ where: { id } });
+  if (!current) throw Errors.notFound("Órgão não encontrado.");
+
+  const [usersWithAgency, requestsWithAgency] = await Promise.all([
+    prisma.user.count({ where: { agency: current.name } }),
+    prisma.vehicleRequest.count({ where: { requestingAgency: current.name } }),
+  ]);
+
+  await prisma.agency.delete({ where: { id } });
+
+  await recordAudit({
+    action: "AGENCY_DELETED",
+    actorUserId: actor.user.id,
+    actorRole: actor.user.role,
+    entityType: "Agency",
+    entityId: id,
+    metadata: {
+      name: current.name,
+      wasActive: current.active,
+      usersWithAgency,
+      requestsWithAgency,
+    },
+    context,
+  });
+}

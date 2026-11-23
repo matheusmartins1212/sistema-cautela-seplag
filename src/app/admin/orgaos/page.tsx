@@ -12,7 +12,8 @@ export default async function AdminOrgaosPage() {
         <h1 className="text-2xl font-bold text-institutional-900">Órgãos atendidos</h1>
         <p className="mt-1 text-sm text-gray-600">
           Lista usada no cadastro dos servidores e nas solicitações, para a central saber de qual
-          órgão vem cada pedido. Órgãos desativados somem das listas, mas o histórico é mantido.
+          órgão vem cada pedido. Desativar tira o órgão das listas e permite reativar depois;
+          remover apaga do catálogo. Nos dois casos, os pedidos antigos mantêm o nome.
         </p>
       </div>
       <AgencyManager

@@ -229,6 +229,7 @@ enum AuditAction {
   USER_DRIVER_UPDATED
   AGENCY_CREATED
   AGENCY_UPDATED
+  AGENCY_DELETED
 }
 
 // =============================== MODELS ======================================

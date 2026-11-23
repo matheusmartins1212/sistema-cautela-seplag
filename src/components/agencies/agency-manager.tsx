@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
-import { apiPatch, apiPost } from "@/lib/api-client";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { apiDelete, apiPatch, apiPost } from "@/lib/api-client";
 
 interface AgencyRow {
   id: string;
@@ -13,13 +14,15 @@ interface AgencyRow {
   active: boolean;
 }
 
-/** Cadastro dos órgãos atendidos pela central (incluir e ativar/desativar). */
+/** Cadastro dos órgãos atendidos pela central (incluir, desativar e remover). */
 export function AgencyManager({ agencies }: { agencies: AgencyRow[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toRemove, setToRemove] = useState<AgencyRow | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   async function add(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,6 +43,20 @@ export function AgencyManager({ agencies }: { agencies: AgencyRow[] }) {
     setError(null);
     const result = await apiPatch(`/api/admin/agencies/${agency.id}`, { active: !agency.active });
     setBusyId(null);
+    if (result.ok) {
+      router.refresh();
+      return;
+    }
+    setError(result.error.message);
+  }
+
+  async function remove() {
+    if (!toRemove) return;
+    setRemoving(true);
+    setError(null);
+    const result = await apiDelete(`/api/admin/agencies/${toRemove.id}`);
+    setRemoving(false);
+    setToRemove(null);
     if (result.ok) {
       router.refresh();
       return;
@@ -92,7 +109,7 @@ export function AgencyManager({ agencies }: { agencies: AgencyRow[] }) {
               <tr key={a.id} className={a.active ? "" : "bg-gray-50 text-gray-500"}>
                 <td className="px-4 py-3 font-medium">{a.name}</td>
                 <td className="px-4 py-3">{a.active ? "Ativo" : "Inativo"}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="whitespace-nowrap px-4 py-3 text-right">
                   <button
                     type="button"
                     onClick={() => toggle(a)}
@@ -101,12 +118,37 @@ export function AgencyManager({ agencies }: { agencies: AgencyRow[] }) {
                   >
                     {a.active ? "Desativar" : "Reativar"}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setToRemove(a)}
+                    disabled={busyId === a.id}
+                    aria-label={`Remover ${a.name}`}
+                    className="ml-4 text-sm font-medium text-danger hover:underline disabled:opacity-50"
+                  >
+                    Remover
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={toRemove !== null}
+        title="Remover órgão?"
+        tone="danger"
+        confirmLabel="Remover"
+        loading={removing}
+        onCancel={() => setToRemove(null)}
+        onConfirm={remove}
+        description={
+          <>
+            <strong>{toRemove?.name}</strong> sai da lista. Contas e solicitações que já usam esse
+            nome continuam com ele. A remoção fica registrada no histórico da sua conta.
+          </>
+        }
+      />
     </div>
   );
 }
