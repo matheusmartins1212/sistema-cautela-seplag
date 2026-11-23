@@ -8,19 +8,15 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import type { NavItem } from "./nav";
+import { activeNavHref, type NavItem } from "./nav";
+import type { ShellUser } from "./shell-user";
 
 interface Props {
   brandTitle: string;
-  user: { fullName: string; email: string; roleLabel: string };
+  user: ShellUser;
   nav: NavItem[];
   contentMaxWidth?: "5xl" | "7xl";
   children: React.ReactNode;
-}
-
-function isActive(pathname: string, item: NavItem): boolean {
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
 function initials(fullName: string): string {
@@ -73,32 +69,37 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
     </div>
   );
 
+  const activeHref = activeNavHref(pathname, nav);
   const navList = (
     <nav aria-label="Navegação principal" className="flex flex-col gap-1 p-3">
-      {nav.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          onClick={() => setDrawerOpen(false)}
-          aria-current={isActive(pathname, item) ? "page" : undefined}
-          className={cn(
-            "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            isActive(pathname, item)
-              ? "bg-institutional-700 text-white"
-              : "text-institutional-100 hover:bg-institutional-800/60 hover:text-white",
-          )}
-        >
-          {item.label}
-        </Link>
-      ))}
+      {nav.map((item) => {
+        const active = item.href === activeHref;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setDrawerOpen(false)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              active
+                ? "bg-institutional-700 text-white"
+                : "text-institutional-100 hover:bg-institutional-800/60 hover:text-white",
+            )}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 
-  // Rodapé da barra lateral: perfil (abre o menu da conta) e notificações.
-  const userPanel = (withBell: boolean) => (
+  // Rodapé da barra lateral: perfil (abre o painel da conta) e notificações.
+  // No computador o painel abre ao lado da barra; no menu do celular, para cima.
+  const userPanel = (inDrawer: boolean) => (
     <div className="flex items-center border-t border-institutional-700/50 px-2 py-3">
-      <UserMenu user={user} />
-      {withBell && <NotificationBell placement="sidebar" />}
+      <ProfileMenu user={user} placement={inDrawer ? "up" : "side"} />
+      {!inDrawer && <NotificationBell placement="sidebar" />}
     </div>
   );
 
@@ -110,7 +111,7 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
       <aside className="hidden w-64 shrink-0 flex-col bg-institutional-900 lg:sticky lg:top-0 lg:z-30 lg:flex lg:h-screen lg:self-start">
         {brand}
         <div className="min-h-0 flex-1 overflow-y-auto">{navList}</div>
-        {userPanel(true)}
+        {userPanel(false)}
       </aside>
 
       {/* Faixa mínima no celular: abrir menu e notificações */}
@@ -147,7 +148,7 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-institutional-900 shadow-xl">
             {brand}
             <div className="min-h-0 flex-1 overflow-y-auto">{navList}</div>
-            {userPanel(false)}
+            {userPanel(true)}
           </aside>
         </div>
       )}
@@ -165,10 +166,10 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
 }
 
 /**
- * Bloco do perfil no rodapé da barra lateral. Ao clicar, abre para cima um
- * menu com os dados da conta e a opção de sair.
+ * Bloco do perfil no rodapé da barra lateral. Ao clicar, abre o painel da
+ * conta: dados cadastrais de quem está logado e a opção de sair.
  */
-function UserMenu({ user }: { user: Props["user"] }) {
+function ProfileMenu({ user, placement }: { user: ShellUser; placement: "side" | "up" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -179,8 +180,8 @@ function UserMenu({ user }: { user: Props["user"] }) {
 
   useEffect(() => {
     if (!open) return;
-    // Teclado: o foco vai para a opção do menu ao abrir.
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    // Teclado: o foco vai para o painel ao abrir.
+    ref.current?.querySelector<HTMLElement>("[data-profile-panel]")?.focus();
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -195,12 +196,22 @@ function UserMenu({ user }: { user: Props["user"] }) {
     };
   }, [open]);
 
+  const details: Array<[string, string]> = [
+    ["E-mail", user.email],
+    ["CPF", user.cpfMasked],
+    ["Matrícula", user.registrationNumber],
+    ["Telefone", user.phone],
+    ["Setor", user.sector],
+    ["Lotação", user.department],
+    ["Conta criada em", user.memberSince],
+  ];
+
   return (
     <div ref={ref} className="relative min-w-0 flex-1">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`Perfil: ${user.fullName}`}
         className={cn(
@@ -225,17 +236,46 @@ function UserMenu({ user }: { user: Props["user"] }) {
 
       {open && (
         <div
-          role="menu"
-          aria-label="Conta"
-          className="absolute bottom-full left-0 z-50 mb-2 w-60 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg"
+          role="dialog"
+          aria-label="Meu perfil"
+          tabIndex={-1}
+          data-profile-panel
+          className={cn(
+            "absolute z-50 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg focus:outline-none",
+            placement === "side"
+              ? "bottom-0 left-full ml-14 w-80"
+              : "bottom-full left-0 mb-2 w-[15rem]",
+          )}
         >
-          <div className="border-b border-gray-100 px-4 py-3">
-            <p className="text-sm font-semibold text-gray-900">{user.fullName}</p>
-            <p className="truncate text-xs text-gray-500" title={user.email}>
-              {user.email}
-            </p>
+          <div className="flex items-center gap-3 bg-institutional-900 px-4 py-4 text-white">
+            <span
+              aria-hidden="true"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-base font-semibold"
+            >
+              {initials(user.fullName)}
+            </span>
+            <div className="min-w-0">
+              <p className="break-words text-sm font-semibold leading-tight">{user.fullName}</p>
+              <span className="mt-1 inline-block rounded-full bg-white/15 px-2 py-0.5 text-[0.7rem] font-medium">
+                {user.roleLabel}
+              </span>
+            </div>
           </div>
-          <div className="p-1">
+
+          <dl className="max-h-[50vh] space-y-2.5 overflow-y-auto px-4 py-3 text-sm">
+            {details.map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">
+                  {label}
+                </dt>
+                <dd className="text-gray-900 [overflow-wrap:anywhere]">
+                  {value || "Não informado"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="border-t border-gray-100 p-1">
             <LogoutButton appearance="menuitem" />
           </div>
         </div>

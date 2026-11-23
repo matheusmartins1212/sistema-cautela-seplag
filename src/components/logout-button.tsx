@@ -20,7 +20,6 @@ export function LogoutButton({ appearance = "button" }: { appearance?: "button" 
     return (
       <button
         type="button"
-        role="menuitem"
         onClick={onClick}
         disabled={loading}
         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/5 focus:bg-danger/5 focus:outline-none disabled:opacity-60"

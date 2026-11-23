@@ -4,7 +4,7 @@ import { getCurrentSession } from "@/server/modules/auth/session";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import { AppShell } from "@/components/shell/app-shell";
 import { USER_NAV, adminEquivalentPath } from "@/components/shell/nav";
-import { USER_ROLE_LABEL } from "@/components/users/labels";
+import { toShellUser } from "@/components/shell/shell-user";
 
 /**
  * Casca da área do servidor (início, solicitações e cautelas). É exclusiva de
@@ -28,11 +28,7 @@ export async function UserAreaShell({
     <AppShell
       brandTitle="Cautela de Veículos"
       contentMaxWidth="5xl"
-      user={{
-        fullName: session.user.fullName,
-        email: session.user.email,
-        roleLabel: USER_ROLE_LABEL[session.user.role],
-      }}
+      user={toShellUser(session.user)}
       nav={USER_NAV}
     >
       {children}

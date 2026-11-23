@@ -3,7 +3,7 @@ import { getCurrentSession } from "@/server/modules/auth/session";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import { AppShell } from "@/components/shell/app-shell";
 import { ADMIN_NAV } from "@/components/shell/nav";
-import { USER_ROLE_LABEL } from "@/components/users/labels";
+import { toShellUser } from "@/components/shell/shell-user";
 
 /**
  * Layout das rotas administrativas. Server Component que aplica a autorização
@@ -16,15 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!isAdmin(session.user.role)) redirect("/painel");
 
   return (
-    <AppShell
-      brandTitle="Painel administrativo"
-      user={{
-        fullName: session.user.fullName,
-        email: session.user.email,
-        roleLabel: USER_ROLE_LABEL[session.user.role],
-      }}
-      nav={ADMIN_NAV}
-    >
+    <AppShell brandTitle="Painel administrativo" user={toShellUser(session.user)} nav={ADMIN_NAV}>
       {children}
     </AppShell>
   );
