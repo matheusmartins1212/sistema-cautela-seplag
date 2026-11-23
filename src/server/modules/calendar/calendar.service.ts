@@ -105,7 +105,16 @@ export type CalendarDayCaution = Caution & {
   vehicle: Vehicle;
   user: Pick<User, "fullName" | "registrationNumber">;
   driver: Pick<User, "fullName"> | null;
-  request: Pick<VehicleRequest, "shift" | "destination" | "requestingAgency">;
+  request: Pick<
+    VehicleRequest,
+    | "shift"
+    | "destination"
+    | "requestingAgency"
+    | "withdrawalDate"
+    | "withdrawalTime"
+    | "returnDate"
+    | "returnTime"
+  >;
 };
 
 /** Viagens que ocupam um dia específico (para o detalhamento do dia). */
@@ -124,7 +133,17 @@ export async function getCautionsOnDay(
       vehicle: true,
       user: { select: { fullName: true, registrationNumber: true } },
       driver: { select: { fullName: true } },
-      request: { select: { shift: true, destination: true, requestingAgency: true } },
+      request: {
+        select: {
+          shift: true,
+          destination: true,
+          requestingAgency: true,
+          withdrawalDate: true,
+          withdrawalTime: true,
+          returnDate: true,
+          returnTime: true,
+        },
+      },
     },
   }) as unknown as Promise<CalendarDayCaution[]>;
 }
