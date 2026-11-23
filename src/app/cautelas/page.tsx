@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CautionStatus } from "@prisma/client";
 import { getCurrentSession } from "@/server/modules/auth/session";
@@ -7,19 +6,27 @@ import { listMyCautionsQuerySchema } from "@/server/modules/cautions/caution.sch
 import { toPublicCaution } from "@/server/modules/cautions/caution.dto";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { CAUTION_STATUS_LABEL } from "@/components/cautions/labels";
+import { PageHeader } from "@/components/ui/page-header";
+import { FilterBar, FilterField, filterControlClass } from "@/components/ui/filter-bar";
+import {
+  ChevronCell,
+  ChevronTh,
+  CodeText,
+  EmptyRow,
+  MobileCard,
+  RowLink,
+  TBody,
+  THead,
+  TableCard,
+  Td,
+  Th,
+  Tr,
+} from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
+import { countLabel, currentYearCuiaba, formatWallClockPeriod } from "@/shared/format";
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function formatDateTimeBr(iso: string): string {
-  const d = new Date(iso);
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const year = d.getUTCFullYear();
-  const hours = String(d.getUTCHours()).padStart(2, "0");
-  const minutes = String(d.getUTCMinutes()).padStart(2, "0");
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 export default async function MinhasViagensPage({ searchParams }: Props) {
@@ -34,34 +41,26 @@ export default async function MinhasViagensPage({ searchParams }: Props) {
   const query = listMyCautionsQuerySchema.parse(cleaned);
   const { items, total, page, pageSize } = await listMyCautions(query, session);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const year = currentYearCuiaba();
 
-  const baseParams = new URLSearchParams();
-  for (const [k, v] of Object.entries(cleaned)) {
-    if (k !== "page") baseParams.set(k, v);
-  }
   const pageHref = (n: number) => {
-    const p = new URLSearchParams(baseParams);
+    const p = new URLSearchParams(cleaned);
     p.set("page", String(n));
     return `/cautelas?${p.toString()}`;
   };
 
+  const rows = items.map((c) => toPublicCaution(c, { includeRequest: true, includeVehicle: true }));
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-institutional-900">Minhas viagens</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          {total} viagem(ns) em que você foi escalado como condutor.
-        </p>
-      </div>
+      <PageHeader
+        title="Minhas viagens"
+        description={`${countLabel(total, "viagem", "viagens")} em que você está com o veículo`}
+      />
 
-      <form className="flex flex-wrap items-end gap-3 rounded-card border border-gray-200 bg-white p-4 shadow-card">
-        <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">Status</span>
-          <select
-            name="status"
-            defaultValue={cleaned.status ?? ""}
-            className="h-10 w-64 rounded-md border border-gray-300 px-3 text-sm"
-          >
+      <FilterBar clearHref="/cautelas">
+        <FilterField label="Status">
+          <select name="status" defaultValue={cleaned.status ?? ""} className={filterControlClass}>
             <option value="">Todos</option>
             {Object.values(CautionStatus).map((s) => (
               <option key={s} value={s}>
@@ -69,180 +68,71 @@ export default async function MinhasViagensPage({ searchParams }: Props) {
               </option>
             ))}
           </select>
-        </label>
-        <Link
-          href="/cautelas"
-          className="inline-flex h-10 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Limpar
-        </Link>
-        <button
-          type="submit"
-          className="inline-flex h-10 items-center rounded-md bg-institutional-800 px-4 text-sm font-semibold text-white hover:bg-institutional-700"
-        >
-          Filtrar
-        </button>
-      </form>
+        </FilterField>
+      </FilterBar>
 
-      {/* Celular: cartões tocáveis. Telas maiores: tabela. */}
       <ul className="space-y-3 sm:hidden">
-        {items.length === 0 && (
+        {rows.length === 0 && (
           <li className="rounded-card border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 shadow-card">
-            Nenhuma viagem escalada para você.
+            Nenhuma viagem por aqui ainda.
           </li>
         )}
-        {items.map((c) => {
-          const cau = toPublicCaution(c, {
-            includeRequest: true,
-            includeUser: true,
-            includeVehicle: true,
-          });
-          return (
-            <li key={cau.id}>
-              <Link
-                href={`/cautelas/${cau.id}`}
-                className="block rounded-card border border-gray-200 bg-white p-4 shadow-card active:bg-gray-50"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="break-all font-mono text-xs font-semibold text-institutional-900">
-                    {cau.publicCode}
-                  </span>
-                  <span className="shrink-0">
-                    <CautionStatusBadge status={cau.status} />
-                  </span>
-                </div>
-                {cau.request && (
-                  <p className="mt-2 text-sm font-medium text-gray-900">
-                    {cau.request.origin ? `${cau.request.origin} → ` : ""}
-                    {cau.request.destination}
-                  </p>
-                )}
-                {cau.vehicle && (
-                  <p className="mt-1 text-xs text-gray-600">
-                    {cau.vehicle.brand} {cau.vehicle.model}{" "}
-                    <span className="font-mono">· {cau.vehicle.plateFormatted}</span>
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-gray-600">
-                  {formatDateTimeBr(cau.plannedWithdrawalAt)} até{" "}
-                  {formatDateTimeBr(cau.plannedReturnAt)}
-                </p>
-              </Link>
-            </li>
-          );
-        })}
+        {rows.map((cau) => (
+          <MobileCard
+            key={cau.id}
+            href={`/cautelas/${cau.id}`}
+            code={cau.publicCode}
+            badge={<CautionStatusBadge status={cau.status} />}
+            title={cau.request?.destination ?? "—"}
+            subtitle={formatWallClockPeriod(cau.plannedWithdrawalAt, cau.plannedReturnAt, year)}
+          />
+        ))}
       </ul>
 
-      <div className="hidden overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card sm:block">
-        <table className="w-full min-w-[48rem] text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
-            <tr>
-              <th className="px-4 py-3">Código</th>
-              <th className="px-4 py-3">Trajeto</th>
-              <th className="px-4 py-3">Veículo</th>
-              <th className="px-4 py-3">Período previsto</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
-                  Nenhuma viagem escalada para você.
-                </td>
-              </tr>
-            )}
-            {items.map((c) => {
-              const cau = toPublicCaution(c, {
-                includeRequest: true,
-                includeUser: true,
-                includeVehicle: true,
-              });
-              return (
-                <tr key={cau.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-institutional-900">
-                    {cau.publicCode}
-                  </td>
-                  <td className="px-4 py-3">
-                    {cau.request ? (
-                      <>
-                        {cau.request.origin && (
-                          <div className="text-xs text-gray-500">de {cau.request.origin}</div>
-                        )}
-                        <div className="font-medium text-gray-900">{cau.request.destination}</div>
-                        <div className="text-xs text-gray-500">
-                          {cau.request.requestingAgency ?? cau.user?.fullName ?? ""}
-                        </div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {cau.vehicle ? (
-                      <>
-                        <div className="font-medium text-gray-900">
-                          {cau.vehicle.brand} {cau.vehicle.model}
-                        </div>
-                        <div className="font-mono text-xs text-gray-500">
-                          {cau.vehicle.plateFormatted}
-                        </div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {formatDateTimeBr(cau.plannedWithdrawalAt)}
-                    <br />
-                    <span className="text-xs text-gray-500">
-                      até {formatDateTimeBr(cau.plannedReturnAt)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <CautionStatusBadge status={cau.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/cautelas/${cau.id}`}
-                      className="text-sm font-medium text-institutional-700 hover:underline"
-                    >
-                      Abrir
-                    </Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="hidden sm:block">
+        <TableCard minWidth="46rem">
+          <THead>
+            <Th width="7rem">Código</Th>
+            <Th>Destino</Th>
+            <Th>Veículo</Th>
+            <Th width="13rem">Saída</Th>
+            <Th width="12.5rem">Status</Th>
+            <ChevronTh />
+          </THead>
+          <TBody>
+            {rows.length === 0 && <EmptyRow colSpan={6}>Nenhuma viagem por aqui ainda.</EmptyRow>}
+            {rows.map((cau) => (
+              <Tr key={cau.id} clickable>
+                <Td>
+                  <RowLink href={`/cautelas/${cau.id}`}>
+                    <CodeText code={cau.publicCode} />
+                  </RowLink>
+                </Td>
+                <Td truncate className="font-medium text-gray-900" title={cau.request?.destination}>
+                  {cau.request?.destination ?? "—"}
+                </Td>
+                <Td
+                  truncate
+                  title={
+                    cau.vehicle ? `${cau.vehicle.model} · ${cau.vehicle.plateFormatted}` : undefined
+                  }
+                >
+                  {cau.vehicle?.model ?? "—"}
+                </Td>
+                <Td className="tabular-nums">
+                  {formatWallClockPeriod(cau.plannedWithdrawalAt, cau.plannedReturnAt, year)}
+                </Td>
+                <Td>
+                  <CautionStatusBadge status={cau.status} />
+                </Td>
+                <ChevronCell />
+              </Tr>
+            ))}
+          </TBody>
+        </TableCard>
       </div>
 
-      {totalPages > 1 && (
-        <nav className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">
-            Página {page} de {totalPages} · {total} resultados
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link
-                href={pageHref(page - 1)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50"
-              >
-                Anterior
-              </Link>
-            )}
-            {page < totalPages && (
-              <Link
-                href={pageHref(page + 1)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50"
-              >
-                Próxima
-              </Link>
-            )}
-          </div>
-        </nav>
-      )}
+      <Pagination page={page} totalPages={totalPages} hrefFor={pageHref} />
     </div>
   );
 }

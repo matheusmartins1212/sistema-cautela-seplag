@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CodeText } from "@/components/ui/data-table";
+import { primaryLinkClass } from "@/components/ui/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { getUserDashboard } from "@/server/modules/dashboard/dashboard.service";
@@ -86,11 +88,8 @@ export default async function PainelPage() {
               : "Resumo das suas solicitações."}
           </p>
         </div>
-        <Link
-          href="/solicitacoes/nova"
-          className="inline-flex h-11 items-center rounded-md bg-institutional-800 px-5 text-sm font-semibold text-white shadow-card hover:bg-institutional-700"
-        >
-          + Solicitar veículo
+        <Link href="/solicitacoes/nova" className={primaryLinkClass}>
+          Solicitar veículo
         </Link>
       </div>
 
@@ -117,13 +116,9 @@ export default async function PainelPage() {
                       className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50"
                     >
                       <div className="min-w-0">
-                        <span className="text-xs font-semibold text-institutional-700">
-                          {formatDateTimeBr(c.plannedWithdrawalAt)} ·{" "}
-                          <span className="font-mono">{c.publicCode}</span>
-                        </span>
+                        <CodeText code={c.publicCode} />
                         <p className="truncate text-sm text-gray-800">
-                          {c.request.origin ? `${c.request.origin} → ` : ""}
-                          {c.request.destination}
+                          {formatDateTimeBr(c.plannedWithdrawalAt)} · {c.request.destination}
                         </p>
                         <p className="truncate text-xs text-gray-500">
                           {c.vehicle.brand} {c.vehicle.model} · {formatPlate(c.vehicle.plate)}
@@ -170,9 +165,7 @@ export default async function PainelPage() {
                     className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50"
                   >
                     <div className="min-w-0">
-                      <span className="font-mono text-xs font-semibold text-institutional-700">
-                        {r.publicCode}
-                      </span>
+                      <CodeText code={r.publicCode} />
                       <p className="truncate text-sm text-gray-800">
                         {formatDateBr(r.withdrawalDate)} {r.withdrawalTime} · {r.destination}
                       </p>

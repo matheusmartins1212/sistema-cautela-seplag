@@ -1,12 +1,17 @@
-import Link from "next/link";
 import { DamageSeverity, DamageStatus } from "@prisma/client";
 import { listDamages } from "@/server/modules/damages/damage.service";
 import { listDamagesQuerySchema } from "@/server/modules/damages/damage.schemas";
 import { toPublicDamage } from "@/server/modules/damages/damage.dto";
 import { DamageStatusBadge } from "@/components/damages/damage-status-badge";
+import { SeverityBadge } from "@/components/damages/severity-badge";
 import { DamageActions } from "@/components/damages/damage-actions";
 import { DAMAGE_STATUS_LABEL, SEVERITY_LABEL } from "@/components/damages/labels";
+import { PageHeader } from "@/components/ui/page-header";
+import { FilterBar, FilterField, filterControlClass } from "@/components/ui/filter-bar";
+import { EmptyRow, TBody, THead, TableCard, Td, Th, Tr } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { formatInstantBr } from "@/shared/time";
+import { countLabel } from "@/shared/format";
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -18,25 +23,24 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
   for (const [k, v] of Object.entries(raw)) {
     if (typeof v === "string" && v.length > 0) cleaned[k] = v;
   }
+
   const query = listDamagesQuerySchema.parse(cleaned);
   const { items, total, page, pageSize } = await listDamages(query);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  const pageHref = (n: number) => {
+    const p = new URLSearchParams(cleaned);
+    p.set("page", String(n));
+    return `/admin/avarias?${p.toString()}`;
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-institutional-900">Avarias</h1>
-        <p className="mt-1 text-sm text-gray-600">{total} registro(s).</p>
-      </div>
+      <PageHeader title="Avarias" description={countLabel(total, "avaria", "avarias")} />
 
-      <form className="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 shadow-card sm:grid-cols-3">
-        <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">Status</span>
-          <select
-            name="status"
-            defaultValue={cleaned.status ?? ""}
-            className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
-          >
+      <FilterBar clearHref="/admin/avarias">
+        <FilterField label="Status">
+          <select name="status" defaultValue={cleaned.status ?? ""} className={filterControlClass}>
             <option value="">Todos</option>
             {Object.values(DamageStatus).map((s) => (
               <option key={s} value={s}>
@@ -44,13 +48,12 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
               </option>
             ))}
           </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">Severidade</span>
+        </FilterField>
+        <FilterField label="Severidade">
           <select
             name="severity"
             defaultValue={cleaned.severity ?? ""}
-            className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
+            className={filterControlClass}
           >
             <option value="">Todas</option>
             {Object.values(DamageSeverity).map((s) => (
@@ -59,106 +62,68 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
               </option>
             ))}
           </select>
-        </label>
-        <div className="flex items-end justify-end gap-2">
-          <Link
-            href="/admin/avarias"
-            className="inline-flex h-10 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Limpar
-          </Link>
-          <button
-            type="submit"
-            className="inline-flex h-10 items-center rounded-md bg-institutional-800 px-4 text-sm font-semibold text-white hover:bg-institutional-700"
-          >
-            Filtrar
-          </button>
-        </div>
-      </form>
+        </FilterField>
+      </FilterBar>
 
-      <div className="overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full min-w-[60rem] text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
-            <tr>
-              <th className="px-4 py-3">Veículo</th>
-              <th className="px-4 py-3">Descrição</th>
-              <th className="px-4 py-3">Severidade</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Aberta em</th>
-              <th className="px-4 py-3">Atualizar</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
-                  Nenhuma avaria registrada.
-                </td>
-              </tr>
-            )}
-            {items.map((d) => {
-              const dmg = toPublicDamage(d, { includeVehicle: true });
-              return (
-                <tr key={dmg.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    {dmg.vehicle ? (
-                      <>
-                        <div className="font-medium text-gray-900">
-                          {dmg.vehicle.brand} {dmg.vehicle.model}
-                        </div>
-                        <div className="font-mono text-xs text-gray-500">
-                          {dmg.vehicle.plateFormatted}
-                        </div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="max-w-md px-4 py-3 text-gray-700">
-                    <p className="whitespace-pre-line">{dmg.description}</p>
-                    {(dmg.checklistId || dmg.cautionId) && (
-                      <div className="mt-1 flex gap-3 text-xs">
-                        {dmg.checklistId && (
-                          <Link
-                            href={`/admin/checklists/${dmg.checklistId}`}
-                            className="font-medium text-institutional-700 hover:underline"
-                          >
-                            Ver checklist
-                          </Link>
-                        )}
-                        {dmg.cautionId && (
-                          <Link
-                            href={`/admin/cautelas/${dmg.cautionId}`}
-                            className="font-medium text-institutional-700 hover:underline"
-                          >
-                            Ver viagem
-                          </Link>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{SEVERITY_LABEL[dmg.severity]}</td>
-                  <td className="px-4 py-3">
-                    <DamageStatusBadge status={dmg.status} />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">
-                    {formatInstantBr(dmg.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <DamageActions damageId={dmg.id} status={dmg.status} severity={dmg.severity} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <TableCard minWidth="46rem">
+        <THead>
+          <Th>Veículo</Th>
+          <Th>Descrição</Th>
+          <Th width="8rem">Severidade</Th>
+          <Th width="9.5rem">Status</Th>
+          <Th width="8.5rem">Registrada em</Th>
+          <Th width="7rem">
+            <span className="sr-only">Ações</span>
+          </Th>
+        </THead>
+        <TBody>
+          {items.length === 0 && <EmptyRow colSpan={6}>Nenhuma avaria com esses filtros.</EmptyRow>}
+          {items.map((d) => {
+            const dmg = toPublicDamage(d, { includeVehicle: true });
+            const vehicleLabel = dmg.vehicle
+              ? `${dmg.vehicle.brand} ${dmg.vehicle.model} · ${dmg.vehicle.plateFormatted}`
+              : "Veículo";
+            return (
+              <Tr key={dmg.id}>
+                <Td
+                  truncate
+                  className="font-medium text-gray-900"
+                  title={
+                    dmg.vehicle ? `${dmg.vehicle.model} · ${dmg.vehicle.plateFormatted}` : undefined
+                  }
+                >
+                  {dmg.vehicle?.model ?? "—"}
+                </Td>
+                <Td truncate title={dmg.description}>
+                  {dmg.description}
+                </Td>
+                <Td>
+                  <SeverityBadge severity={dmg.severity} />
+                </Td>
+                <Td>
+                  <DamageStatusBadge status={dmg.status} />
+                </Td>
+                <Td className="tabular-nums text-gray-500">
+                  {formatInstantBr(dmg.createdAt).slice(0, 10)}
+                </Td>
+                <Td align="right">
+                  <DamageActions
+                    damageId={dmg.id}
+                    status={dmg.status}
+                    severity={dmg.severity}
+                    description={dmg.description}
+                    vehicleLabel={vehicleLabel}
+                    checklistId={dmg.checklistId}
+                    cautionId={dmg.cautionId}
+                  />
+                </Td>
+              </Tr>
+            );
+          })}
+        </TBody>
+      </TableCard>
 
-      {totalPages > 1 && (
-        <p className="text-sm text-gray-600">
-          Página {page} de {totalPages}
-        </p>
-      )}
+      <Pagination page={page} totalPages={totalPages} hrefFor={pageHref} />
     </div>
   );
 }

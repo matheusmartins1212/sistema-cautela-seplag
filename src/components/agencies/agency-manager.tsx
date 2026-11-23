@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Badge } from "@/components/ui/badge";
+import { EmptyRow, TBody, THead, TableCard, Td, Th, Tr } from "@/components/ui/data-table";
 import { apiDelete, apiPatch, apiPost } from "@/lib/api-client";
 
 interface AgencyRow {
@@ -87,52 +89,58 @@ export function AgencyManager({ agencies }: { agencies: AgencyRow[] }) {
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
-            <tr>
-              <th className="px-4 py-3">Órgão</th>
-              <th className="px-4 py-3">Situação</th>
-              <th className="px-4 py-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {agencies.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-12 text-center text-sm text-gray-500">
-                  Nenhum órgão cadastrado. Enquanto a lista estiver vazia, o cadastro e as
-                  solicitações não pedem o órgão.
-                </td>
-              </tr>
-            )}
-            {agencies.map((a) => (
-              <tr key={a.id} className={a.active ? "" : "bg-gray-50 text-gray-500"}>
-                <td className="px-4 py-3 font-medium">{a.name}</td>
-                <td className="px-4 py-3">{a.active ? "Ativo" : "Inativo"}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => toggle(a)}
-                    disabled={busyId === a.id}
-                    className="text-sm font-medium text-institutional-700 hover:underline disabled:opacity-50"
-                  >
-                    {a.active ? "Desativar" : "Reativar"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setToRemove(a)}
-                    disabled={busyId === a.id}
-                    aria-label={`Remover ${a.name}`}
-                    className="ml-4 text-sm font-medium text-danger hover:underline disabled:opacity-50"
-                  >
-                    Remover
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <TableCard minWidth="46rem">
+        <THead>
+          <Th>Órgão</Th>
+          <Th width="8rem">Situação</Th>
+          <Th align="right" width="12rem">
+            <span className="sr-only">Ações</span>
+          </Th>
+        </THead>
+        <TBody>
+          {agencies.length === 0 && (
+            <EmptyRow colSpan={3}>
+              Nenhum órgão cadastrado. Enquanto a lista estiver vazia, o cadastro e as solicitações
+              não pedem o órgão.
+            </EmptyRow>
+          )}
+          {agencies.map((a) => (
+            <Tr key={a.id}>
+              <Td
+                truncate
+                className={a.active ? "font-medium text-gray-900" : "text-gray-400"}
+                title={a.name}
+              >
+                {a.name}
+              </Td>
+              <Td>
+                <Badge tone={a.active ? "success" : "muted"}>
+                  {a.active ? "Ativo" : "Inativo"}
+                </Badge>
+              </Td>
+              <Td align="right">
+                <button
+                  type="button"
+                  onClick={() => toggle(a)}
+                  disabled={busyId === a.id}
+                  className="text-sm font-medium text-institutional-700 hover:underline disabled:opacity-50"
+                >
+                  {a.active ? "Desativar" : "Reativar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setToRemove(a)}
+                  disabled={busyId === a.id}
+                  aria-label={`Remover ${a.name}`}
+                  className="ml-4 text-sm font-medium text-gray-500 hover:text-danger hover:underline disabled:opacity-50"
+                >
+                  Remover
+                </button>
+              </Td>
+            </Tr>
+          ))}
+        </TBody>
+      </TableCard>
 
       <ConfirmDialog
         open={toRemove !== null}

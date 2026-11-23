@@ -1,8 +1,22 @@
-import Link from "next/link";
 import { listDriversOverview } from "@/server/modules/users/user.service";
 import { UserStatusBadge } from "@/components/users/user-status-badge";
+import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import {
+  ChevronCell,
+  ChevronTh,
+  EmptyRow,
+  Muted,
+  RowLink,
+  TBody,
+  THead,
+  TableCard,
+  Td,
+  Th,
+  Tr,
+} from "@/components/ui/data-table";
 import { toAppWallClock } from "@/shared/time";
-import { formatPhoneBr } from "@/shared/phone";
+import { countLabel } from "@/shared/format";
 
 export const dynamic = "force-dynamic";
 
@@ -17,20 +31,18 @@ function formatDateBr(date: Date): string {
 function formatDateTimeBr(date: Date): string {
   const hh = String(date.getUTCHours()).padStart(2, "0");
   const mm = String(date.getUTCMinutes()).padStart(2, "0");
-  return `${formatDateBr(date)} ${hh}:${mm}`;
+  return `${formatDateBr(date)}, ${hh}:${mm}`;
 }
 
-/** Situação da CNH em relação a hoje (horário de Cuiabá). */
-function licenseStatus(expiresAt: Date | null): { label: string; tone: string } {
-  if (!expiresAt) return { label: "Validade não informada", tone: "text-gray-500" };
+/** Situação da CNH em relação a hoje (horário de Cuiabá), em poucas palavras. */
+function licenseStatus(expiresAt: Date | null): { label: string; tone: BadgeTone } {
+  if (!expiresAt) return { label: "Sem validade", tone: "muted" };
   const today = toAppWallClock(new Date());
   today.setUTCHours(0, 0, 0, 0);
   const days = Math.round((expiresAt.getTime() - today.getTime()) / DAY_MS);
-  if (days < 0) return { label: `Vencida em ${formatDateBr(expiresAt)}`, tone: "text-danger" };
-  if (days <= 30) {
-    return { label: `Vence em ${formatDateBr(expiresAt)}`, tone: "text-warning" };
-  }
-  return { label: `Válida até ${formatDateBr(expiresAt)}`, tone: "text-gray-700" };
+  if (days < 0) return { label: "Vencida", tone: "danger" };
+  if (days <= 30) return { label: `Vence ${formatDateBr(expiresAt)}`, tone: "warning" };
+  return { label: `Até ${formatDateBr(expiresAt)}`, tone: "success" };
 }
 
 export default async function AdminCondutoresPage() {
@@ -38,83 +50,59 @@ export default async function AdminCondutoresPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-institutional-900">Condutores</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          {drivers.length} condutor(es) habilitado(s). Para incluir alguém, abra a pessoa em{" "}
-          <Link
-            href="/admin/usuarios"
-            className="font-medium text-institutional-700 hover:underline"
-          >
-            Usuários
-          </Link>{" "}
-          e marque &quot;Condutor da central&quot;. O condutor precisa ter conta na plataforma.
-        </p>
-      </div>
+      <PageHeader
+        title="Condutores"
+        description={`${countLabel(drivers.length, "condutor habilitado", "condutores habilitados")}. Para habilitar, abra a pessoa em Usuários.`}
+      />
 
-      <div className="overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full min-w-[52rem] text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
-            <tr>
-              <th className="px-4 py-3">Condutor</th>
-              <th className="px-4 py-3">CNH</th>
-              <th className="px-4 py-3">Viagens em aberto</th>
-              <th className="px-4 py-3">Próxima saída</th>
-              <th className="px-4 py-3">Acesso</th>
-              <th className="px-4 py-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {drivers.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
-                  Nenhum condutor habilitado ainda.
-                </td>
-              </tr>
-            )}
-            {drivers.map(({ user, activeTrips, nextTripAt }) => {
-              const license = licenseStatus(user.driverLicenseExpiresAt);
-              return (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{user.fullName}</div>
-                    <div className="text-xs text-gray-500">{formatPhoneBr(user.phone)}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">
-                      {user.driverLicenseCategory ?? "—"}
-                    </div>
-                    <div className={`text-xs ${license.tone}`}>{license.label}</div>
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-gray-700">{activeTrips}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {nextTripAt ? formatDateTimeBr(nextTripAt) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <UserStatusBadge status={user.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-4">
-                      <Link
-                        href={`/admin/cautelas?driverId=${user.id}`}
-                        className="text-sm font-medium text-institutional-700 hover:underline"
-                      >
-                        Viagens
-                      </Link>
-                      <Link
-                        href={`/admin/usuarios/${user.id}`}
-                        className="text-sm font-medium text-institutional-700 hover:underline"
-                      >
-                        Editar
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <TableCard minWidth="46rem">
+        <THead>
+          <Th>Condutor</Th>
+          <Th width="13rem">CNH</Th>
+          <Th align="right" width="7rem">
+            Em aberto
+          </Th>
+          <Th width="10.5rem">Próxima saída</Th>
+          <Th width="11.5rem">Acesso</Th>
+          <ChevronTh />
+        </THead>
+        <TBody>
+          {drivers.length === 0 && (
+            <EmptyRow colSpan={6}>Nenhum condutor habilitado ainda.</EmptyRow>
+          )}
+          {drivers.map(({ user, activeTrips, nextTripAt }) => {
+            const license = licenseStatus(user.driverLicenseExpiresAt);
+            return (
+              <Tr key={user.id} clickable>
+                <Td truncate>
+                  <RowLink
+                    href={`/admin/usuarios/${user.id}`}
+                    className="font-medium text-gray-900"
+                  >
+                    {user.fullName}
+                  </RowLink>
+                </Td>
+                <Td>
+                  <span className="mr-2 font-semibold text-gray-900">
+                    {user.driverLicenseCategory ?? "—"}
+                  </span>
+                  <Badge tone={license.tone}>{license.label}</Badge>
+                </Td>
+                <Td align="right" className="tabular-nums">
+                  {activeTrips}
+                </Td>
+                <Td className="tabular-nums">
+                  {nextTripAt ? formatDateTimeBr(nextTripAt) : <Muted>—</Muted>}
+                </Td>
+                <Td>
+                  <UserStatusBadge status={user.status} />
+                </Td>
+                <ChevronCell />
+              </Tr>
+            );
+          })}
+        </TBody>
+      </TableCard>
     </div>
   );
 }

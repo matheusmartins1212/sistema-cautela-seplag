@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { getCautionStats, getDamagesByVehicle } from "@/server/modules/reports/reports.service";
 import { reportRangeSchema, toDateRange } from "@/server/modules/reports/reports.schemas";
 import { formatPlate } from "@/shared/validation/plate";
+import { PageHeader } from "@/components/ui/page-header";
+import { FilterBar, FilterField, filterControlClass } from "@/components/ui/filter-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -43,45 +44,26 @@ export default async function AdminRelatoriosPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-institutional-900">Relatórios</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Indicadores de uso da frota e avarias · {periodLabel}.
-        </p>
-      </div>
+      <PageHeader title="Relatórios" description={`Uso da frota e avarias · ${periodLabel}`} />
 
-      <form className="flex flex-wrap items-end gap-3 rounded-card border border-gray-200 bg-white p-4 shadow-card">
-        <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">De</span>
+      <FilterBar clearHref="/admin/relatorios" submitLabel="Aplicar">
+        <FilterField label="De">
           <input
             type="date"
             name="from"
             defaultValue={input.from ?? ""}
-            className="h-10 w-44 rounded-md border border-gray-300 px-3 text-sm"
+            className={filterControlClass}
           />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-gray-600">Até</span>
+        </FilterField>
+        <FilterField label="Até">
           <input
             type="date"
             name="to"
             defaultValue={input.to ?? ""}
-            className="h-10 w-44 rounded-md border border-gray-300 px-3 text-sm"
+            className={filterControlClass}
           />
-        </label>
-        <button
-          type="submit"
-          className="inline-flex h-10 items-center rounded-md bg-institutional-800 px-4 text-sm font-semibold text-white hover:bg-institutional-700"
-        >
-          Aplicar período
-        </button>
-        <Link
-          href="/admin/relatorios"
-          className="inline-flex h-10 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Limpar
-        </Link>
-      </form>
+        </FilterField>
+      </FilterBar>
 
       <ReportTable
         title="Viagens por órgão"
@@ -161,12 +143,16 @@ function ReportTable({
         </a>
       </div>
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
+        <thead className="border-b border-gray-200 bg-gray-50/80">
           <tr>
             {columns.map((c, i) => (
               <th
                 key={c}
-                className={i === columns.length - 1 ? "px-5 py-2.5 text-right" : "px-5 py-2.5"}
+                scope="col"
+                className={
+                  "whitespace-nowrap px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 " +
+                  (i === columns.length - 1 ? "text-right" : "text-left")
+                }
               >
                 {c}
               </th>
@@ -182,7 +168,7 @@ function ReportTable({
             </tr>
           ) : (
             rows.map((row, ri) => (
-              <tr key={ri} className="hover:bg-gray-50">
+              <tr key={ri} className="transition-colors hover:bg-gray-50/60">
                 {row.map((cell, ci) => (
                   <td
                     key={ci}
