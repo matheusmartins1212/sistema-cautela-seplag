@@ -40,7 +40,7 @@ vi.mock("@/server/db/prisma", () => {
 });
 vi.mock("@/server/lib/audit", () => ({ recordAudit: vi.fn() }));
 vi.mock("@/server/modules/email/email.service", () => ({
-  sendTransactionalEmail: vi.fn().mockResolvedValue({ ok: true }),
+  sendEmailAfterResponse: vi.fn(),
 }));
 vi.mock("@/server/modules/notifications/notifications.service", () => ({
   createNotification: vi.fn().mockResolvedValue(null),
@@ -49,7 +49,7 @@ vi.mock("@/server/modules/notifications/notifications.service", () => ({
 import { prisma } from "@/server/db/prisma";
 import { recordAudit } from "@/server/lib/audit";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
-import { sendTransactionalEmail } from "@/server/modules/email/email.service";
+import { sendEmailAfterResponse } from "@/server/modules/email/email.service";
 import {
   approveRequest,
   cancelMyRequest,
@@ -182,7 +182,7 @@ describe("createRequest", () => {
     );
     // E-mail é best-effort (fire-and-forget), mas precisa ter sido disparado.
     await new Promise((r) => setImmediate(r));
-    expect(sendTransactionalEmail).toHaveBeenCalled();
+    expect(sendEmailAfterResponse).toHaveBeenCalled();
   });
 
   it("tenta de novo se colidir publicCode (P2002)", async () => {
@@ -427,7 +427,7 @@ describe("approveRequest", () => {
       expect.objectContaining({ type: "REQUEST_APPROVED", userId: "u1" }),
     );
     await new Promise((r) => setImmediate(r));
-    expect(sendTransactionalEmail).toHaveBeenCalled();
+    expect(sendEmailAfterResponse).toHaveBeenCalled();
   });
 
   it("escala o condutor na viagem e avisa o condutor", async () => {
@@ -442,8 +442,8 @@ describe("approveRequest", () => {
     expect(createNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "TRIP_ASSIGNED", userId: "d1" }),
     );
-    await new Promise((r) => setImmediate(r));
-    const templates = (sendTransactionalEmail as ReturnType<typeof vi.fn>).mock.calls.map(
+    // Solicitante e condutor recebem e-mail, além da notificação na plataforma.
+    const templates = (sendEmailAfterResponse as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => c[0].template,
     );
     expect(templates).toEqual(expect.arrayContaining(["REQUEST_APPROVED", "TRIP_ASSIGNED"]));

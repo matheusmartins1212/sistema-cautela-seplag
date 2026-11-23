@@ -20,7 +20,7 @@ import { generateCautionCode, generateRequestCode } from "@/server/lib/public-co
 import { isAdmin } from "@/server/modules/auth/rbac";
 import type { SessionUser } from "@/server/modules/auth/session";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
-import { sendTransactionalEmail } from "@/server/modules/email/email.service";
+import { sendEmailAfterResponse } from "@/server/modules/email/email.service";
 import {
   buildRequestApproved,
   buildRequestReceived,
@@ -176,7 +176,7 @@ export async function createRequest(
   });
 
   // E-mail de confirmação (best effort — não derruba a criação)
-  void sendTransactionalEmail(
+  sendEmailAfterResponse(
     buildRequestReceived({
       to: actor.user.email,
       fullName: actor.user.fullName,
@@ -187,7 +187,7 @@ export async function createRequest(
       detailsUrl: `${env.APP_BASE_URL}/solicitacoes/${created.id}`,
       requestId: created.id,
     }),
-  ).catch(() => undefined);
+  );
 
   return created;
 }
@@ -697,7 +697,7 @@ export async function approveRequest(
     relatedEntityId: id,
   });
 
-  void sendTransactionalEmail(
+  sendEmailAfterResponse(
     buildRequestApproved({
       to: req!.user.email,
       fullName: req!.user.fullName,
@@ -713,7 +713,7 @@ export async function approveRequest(
       detailsUrl: `${env.APP_BASE_URL}/solicitacoes/${id}`,
       requestId: id,
     }),
-  ).catch(() => undefined);
+  );
 
   if (driver) {
     // Condutor: aviso da nova viagem (best effort).
@@ -726,7 +726,7 @@ export async function approveRequest(
       relatedEntityId: result.caution.id,
     });
 
-    void sendTransactionalEmail(
+    sendEmailAfterResponse(
       buildTripAssigned({
         to: driver.email,
         fullName: driver.fullName,
@@ -745,7 +745,7 @@ export async function approveRequest(
         detailsUrl: `${env.APP_BASE_URL}/cautelas/${result.caution.id}`,
         cautionId: result.caution.id,
       }),
-    ).catch(() => undefined);
+    );
   }
 
   return result;
@@ -803,7 +803,7 @@ export async function rejectRequest(
     relatedEntityId: id,
   });
 
-  void sendTransactionalEmail(
+  sendEmailAfterResponse(
     buildRequestRejected({
       to: req!.user.email,
       fullName: req!.user.fullName,
@@ -812,7 +812,7 @@ export async function rejectRequest(
       detailsUrl: `${env.APP_BASE_URL}/solicitacoes/${id}`,
       requestId: id,
     }),
-  ).catch(() => undefined);
+  );
 
   return updated;
 }

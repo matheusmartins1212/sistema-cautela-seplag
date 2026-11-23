@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/server/db/prisma";
 import { logger } from "@/server/lib/logger";
 import { getEmailProvider } from "@/server/modules/email/provider-factory";
@@ -64,4 +65,23 @@ export async function sendTransactionalEmail(
     error: lastError instanceof Error ? lastError.message : "unknown",
   });
   return { ok: false, emailLogId: log.id };
+}
+
+/**
+ * Envia sem atrasar a resposta da tela. Na Vercel, o que fica rodando depois
+ * da resposta é cortado (um `void` solto pode nunca chegar a enviar); `after`
+ * mantém a função viva até o envio terminar. Fora de uma requisição (scripts,
+ * testes) cai para o envio direto, sem esperar.
+ */
+export function sendEmailAfterResponse(message: EmailMessage): void {
+  const task = () =>
+    sendTransactionalEmail(message).then(
+      () => undefined,
+      () => undefined,
+    );
+  try {
+    after(task);
+  } catch {
+    void task();
+  }
 }
