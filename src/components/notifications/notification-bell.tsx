@@ -36,11 +36,11 @@ function relativeTime(iso: string): string {
 }
 
 /**
- * "sidebar": sino no rodapé da barra lateral; o painel abre para a direita,
- * ao lado da barra, alinhado por baixo. "topbar": faixa do celular; o painel
- * desce alinhado à direita.
+ * "floating": botão redondo fixo no canto superior direito (computador).
+ * "topbar": faixa escura do celular. Nos dois, o painel desce alinhado à
+ * direita do botão.
  */
-export function NotificationBell({ placement = "topbar" }: { placement?: "sidebar" | "topbar" }) {
+export function NotificationBell({ placement = "topbar" }: { placement?: "floating" | "topbar" }) {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
@@ -109,11 +109,24 @@ export function NotificationBell({ placement = "topbar" }: { placement?: "sideba
         aria-label={`Notificações${unread > 0 ? ` (${unread} não lidas)` : ""}`}
         aria-haspopup="true"
         aria-expanded={open}
-        className="relative rounded-lg p-2 text-institutional-100 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300"
+        className={cn(
+          "relative transition focus:outline-none focus-visible:ring-2",
+          placement === "floating"
+            ? "flex h-11 w-11 items-center justify-center rounded-full bg-white text-institutional-800 shadow-lg shadow-institutional-950/10 ring-1 ring-gray-200 hover:-translate-y-px hover:text-institutional-950 hover:shadow-xl focus-visible:ring-institutional-500"
+            : "rounded-lg p-2 text-institutional-100 hover:bg-white/10 hover:text-white focus-visible:ring-institutional-300",
+          placement === "floating" && open && "ring-institutional-300",
+        )}
       >
         <BellIcon />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex min-w-[1.1rem] items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold leading-4 text-white">
+          <span
+            className={cn(
+              "absolute flex min-w-[1.1rem] items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold leading-4 text-white",
+              placement === "floating"
+                ? "-right-1 -top-1 ring-2 ring-white"
+                : "-right-0.5 -top-0.5",
+            )}
+          >
             {unread > 99 ? "99+" : unread}
           </span>
         )}
@@ -123,8 +136,8 @@ export function NotificationBell({ placement = "topbar" }: { placement?: "sideba
         <div
           className={cn(
             "absolute z-50 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg",
-            placement === "sidebar"
-              ? "bottom-0 left-full ml-8 w-96"
+            placement === "floating"
+              ? "right-0 mt-3 w-96"
               : "right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))]",
           )}
         >

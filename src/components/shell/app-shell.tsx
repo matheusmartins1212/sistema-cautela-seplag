@@ -37,7 +37,8 @@ function initials(fullName: string): string {
 /**
  * Estrutura das telas logadas. Não há barra superior: marca, navegação e
  * usuário ficam na barra lateral. O bloco do usuário, no rodapé, leva à página
- * "Meu perfil", onde ficam os dados da conta e a opção de sair.
+ * "Meu perfil", onde ficam os dados da conta e a opção de sair. As
+ * notificações ficam num botão flutuante no canto superior direito.
  * No celular, uma faixa mínima no topo só abre o menu e mostra as notificações.
  */
 export function AppShell({
@@ -158,9 +159,9 @@ export function AppShell({
     </nav>
   );
 
-  // Rodapé da barra lateral: atalho para a página "Meu perfil" e notificações.
+  // Rodapé da barra lateral: atalho para a página "Meu perfil".
   const profileActive = pathname === profileHref;
-  const userPanel = (inDrawer: boolean) => (
+  const userPanel = (
     <div className="relative p-3">
       <div
         aria-hidden="true"
@@ -168,7 +169,7 @@ export function AppShell({
       />
       <div
         className={cn(
-          "flex items-center gap-1 rounded-xl p-1.5 ring-1 transition-colors",
+          "rounded-xl p-1.5 ring-1 transition-colors",
           profileActive ? "bg-white/[0.1] ring-white/15" : "bg-white/[0.04] ring-white/[0.08]",
         )}
       >
@@ -177,7 +178,7 @@ export function AppShell({
           onClick={() => setDrawerOpen(false)}
           aria-current={profileActive ? "page" : undefined}
           aria-label={`Meu perfil: ${user.fullName}`}
-          className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300"
+          className="group flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300"
         >
           <span
             aria-hidden="true"
@@ -193,16 +194,26 @@ export function AppShell({
               {user.roleLabel}
             </span>
           </span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="mr-0.5 h-4 w-4 shrink-0 text-institutional-300/60 transition group-hover:translate-x-0.5 group-hover:text-institutional-200"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
         </Link>
-        {!inDrawer && <NotificationBell placement="sidebar" />}
       </div>
     </div>
   );
 
   const sidebarSurface =
     "bg-gradient-to-b from-institutional-950 via-institutional-900 to-institutional-950";
-  // Marca d'água recortada no próprio contêiner: a barra não pode cortar o
-  // painel de notificações, que abre para fora dela.
+  // Marca d'água recortada no próprio contêiner, sem cortar o resto da barra.
   const watermark = (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
       <Image
@@ -216,8 +227,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-gray-50 lg:flex">
       {/* Barra lateral no computador: fica fixa enquanto a página rola. Só a
-          lista de links rola, para o rodapé do usuário ficar sempre visível e o
-          painel de notificações poder abrir para fora da barra. */}
+          lista de links rola, para o rodapé do usuário ficar sempre visível. */}
       <aside
         className={cn(
           "relative hidden w-64 shrink-0 flex-col border-r border-black/20 lg:sticky lg:top-0 lg:z-30 lg:flex lg:h-screen lg:self-start",
@@ -229,8 +239,15 @@ export function AppShell({
         <div className="relative min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(255,255,255,0.15)_transparent] [scrollbar-width:thin]">
           {navList}
         </div>
-        {userPanel(false)}
+        {userPanel}
       </aside>
+
+      {/* Notificações no computador: botão flutuante no canto superior direito.
+          O conteúdo reserva essa faixa (lg:pr-20) para o botão nunca cobrir
+          ações da página, mesmo rolando. */}
+      <div className="fixed right-5 top-5 z-40 hidden lg:block">
+        <NotificationBell placement="floating" />
+      </div>
 
       {/* Faixa mínima no celular: abrir menu e notificações */}
       <div className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-gradient-to-r from-institutional-950 to-institutional-900 px-3 py-2 text-white shadow-sm lg:hidden">
@@ -272,14 +289,14 @@ export function AppShell({
             {watermark}
             {brand}
             <div className="relative min-h-0 flex-1 overflow-y-auto">{navList}</div>
-            {userPanel(true)}
+            {userPanel}
           </aside>
         </div>
       )}
 
       <main
         className={cn(
-          "mx-auto w-full min-w-0 flex-1 px-4 py-8 lg:px-8",
+          "mx-auto w-full min-w-0 flex-1 px-4 py-8 lg:pl-8 lg:pr-20",
           contentMaxWidth === "5xl" ? "max-w-5xl" : "max-w-7xl",
         )}
       >
