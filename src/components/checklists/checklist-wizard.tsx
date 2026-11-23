@@ -35,6 +35,15 @@ interface Props {
 
 type Step = 0 | 1 | 2 | 3;
 
+/** Fotos do veículo: uma por posição. */
+const VEHICLE_PHOTO_SLOTS = [
+  { type: "DIANTEIRA", label: "Dianteira" },
+  { type: "TRASEIRA", label: "Traseira" },
+  { type: "LATERAL_ESQUERDA", label: "Lateral esquerda" },
+  { type: "LATERAL_DIREITA", label: "Lateral direita" },
+  { type: "PAINEL", label: "Painel (KM e combustível)" },
+] as const;
+
 interface ItemDraft {
   id: string;
   itemKey: string;
@@ -160,8 +169,8 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
       internalCleanliness: internalCleanliness || undefined,
       externalCleanliness: externalCleanliness || undefined,
       parkingLocation: parkingLocation || undefined,
-      hasChangesFromInitial,
-      changesDescription: changesDescription || undefined,
+      hasChangesFromInitial: type === "DEVOLUCAO" && hasChangesFromInitial,
+      changesDescription: (type === "DEVOLUCAO" && changesDescription) || undefined,
       hasDamage,
       damageDescription: damageDescription || undefined,
       generalNotes: generalNotes || undefined,
@@ -185,8 +194,8 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
       internalCleanliness,
       externalCleanliness,
       parkingLocation: parkingLocation || null,
-      hasChangesFromInitial,
-      changesDescription: changesDescription || null,
+      hasChangesFromInitial: type === "DEVOLUCAO" && hasChangesFromInitial,
+      changesDescription: (type === "DEVOLUCAO" && changesDescription) || null,
       hasDamage,
       damageDescription: damageDescription || null,
       generalNotes: generalNotes || null,
@@ -429,33 +438,25 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
             Fotos do veículo
           </h2>
           <p className="text-sm text-gray-600">
-            Anexe fotos do estado atual do veículo. Pelo menos uma foto da dianteira e do painel é
-            recomendado.
+            Uma foto de cada posição, mostrando o estado atual do veículo. Para trocar, remova a
+            foto e envie outra.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <PhotoUploader checklistId={checklist.id} defaultType="DIANTEIRA" label="Dianteira" />
-            <PhotoUploader checklistId={checklist.id} defaultType="TRASEIRA" label="Traseira" />
-            <PhotoUploader
-              checklistId={checklist.id}
-              defaultType="LATERAL_ESQUERDA"
-              label="Lateral esquerda"
-            />
-            <PhotoUploader
-              checklistId={checklist.id}
-              defaultType="LATERAL_DIREITA"
-              label="Lateral direita"
-            />
-            <PhotoUploader
-              checklistId={checklist.id}
-              defaultType="PAINEL"
-              label="Painel (KM e combustível)"
-            />
-            <PhotoUploader checklistId={checklist.id} defaultType="INTERIOR" label="Interior" />
+            {VEHICLE_PHOTO_SLOTS.map((slot) => (
+              <PhotoUploader
+                key={slot.type}
+                checklistId={checklist.id}
+                defaultType={slot.type}
+                label={slot.label}
+                single
+              />
+            ))}
             {type === "DEVOLUCAO" && (
               <PhotoUploader
                 checklistId={checklist.id}
                 defaultType="LOCAL_ESTACIONADO"
                 label="Local em que estacionou"
+                single
               />
             )}
           </div>
@@ -473,18 +474,23 @@ export function ChecklistWizard({ cautionId, type, checklist }: Props) {
             />
           )}
 
-          <CheckboxRow
-            label="Há alterações em relação à condição inicial?"
-            checked={hasChangesFromInitial}
-            onChange={setHasChangesFromInitial}
-          />
-          {hasChangesFromInitial && (
-            <Textarea
-              label="Descreva as alterações"
-              value={changesDescription}
-              onChange={(e) => setChangesDescription(e.target.value)}
-              rows={3}
-            />
+          {/* No retorno, compara com a saída. Na saída não há o que comparar. */}
+          {type === "DEVOLUCAO" && (
+            <>
+              <CheckboxRow
+                label="O veículo teve alguma alteração desde a saída?"
+                checked={hasChangesFromInitial}
+                onChange={setHasChangesFromInitial}
+              />
+              {hasChangesFromInitial && (
+                <Textarea
+                  label="Descreva as alterações"
+                  value={changesDescription}
+                  onChange={(e) => setChangesDescription(e.target.value)}
+                  rows={3}
+                />
+              )}
+            </>
           )}
 
           <CheckboxRow label="Há avaria a registrar?" checked={hasDamage} onChange={setHasDamage} />

@@ -288,8 +288,13 @@ export async function saveChecklistDraft(
         internalCleanliness: input.internalCleanliness,
         externalCleanliness: input.externalCleanliness,
         parkingLocation: input.parkingLocation ?? undefined,
-        hasChangesFromInitial: input.hasChangesFromInitial,
-        changesDescription: input.changesDescription ?? undefined,
+        // "Alterações desde a saída" só existe no retorno.
+        hasChangesFromInitial:
+          current!.type === ChecklistType.DEVOLUCAO ? input.hasChangesFromInitial : false,
+        changesDescription:
+          current!.type === ChecklistType.DEVOLUCAO
+            ? (input.changesDescription ?? undefined)
+            : null,
         hasDamage: input.hasDamage,
         damageDescription: input.damageDescription ?? undefined,
         generalNotes: input.generalNotes ?? undefined,
@@ -406,8 +411,10 @@ export async function submitChecklist(
         internalCleanliness: input.internalCleanliness,
         externalCleanliness: input.externalCleanliness,
         parkingLocation: input.parkingLocation ?? null,
-        hasChangesFromInitial: input.hasChangesFromInitial,
-        changesDescription: input.changesDescription ?? null,
+        hasChangesFromInitial:
+          current!.type === ChecklistType.DEVOLUCAO ? input.hasChangesFromInitial : false,
+        changesDescription:
+          current!.type === ChecklistType.DEVOLUCAO ? (input.changesDescription ?? null) : null,
         hasDamage: input.hasDamage,
         damageDescription: input.damageDescription ?? null,
         generalNotes: input.generalNotes ?? null,

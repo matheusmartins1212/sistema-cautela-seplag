@@ -74,6 +74,16 @@ export interface UploadPhotoInput {
   checklistItemKey?: string; // se vinculada a um item
 }
 
+/** Posições com uma única foto por checklist. */
+export const SINGLE_PHOTO_TYPES: ReadonlySet<PhotoType> = new Set<PhotoType>([
+  PhotoType.DIANTEIRA,
+  PhotoType.TRASEIRA,
+  PhotoType.LATERAL_ESQUERDA,
+  PhotoType.LATERAL_DIREITA,
+  PhotoType.PAINEL,
+  PhotoType.LOCAL_ESTACIONADO,
+]);
+
 export async function uploadPhoto(
   checklistId: string,
   input: UploadPhotoInput,
@@ -97,6 +107,17 @@ export async function uploadPhoto(
       throw Errors.validation("Item de checklist não encontrado.");
     }
     checklistItemId = item.id;
+  }
+
+  // Fotos de posição do veículo: uma de cada no checklist. Para trocar,
+  // remove-se a atual. Avaria e itens continuam aceitando várias.
+  if (!checklistItemId && SINGLE_PHOTO_TYPES.has(input.type)) {
+    const existing = await prisma.checklistPhoto.count({
+      where: { checklistId, checklistItemId: null, type: input.type },
+    });
+    if (existing > 0) {
+      throw Errors.conflict("Já existe uma foto nesta posição. Remova a atual para enviar outra.");
+    }
   }
 
   const stored = await getStorage().put({

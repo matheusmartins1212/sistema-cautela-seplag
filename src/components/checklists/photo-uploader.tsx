@@ -24,6 +24,8 @@ interface Props {
   itemScope?: boolean;
   /** Marca este uploader como obrigatório (mostra label vermelho quando vazio). */
   required?: boolean;
+  /** Uma única foto: depois de enviada, para trocar é preciso remover a atual. */
+  single?: boolean;
   label?: string;
 }
 
@@ -37,6 +39,7 @@ export function PhotoUploader({
   checklistItemId,
   itemScope,
   required,
+  single,
   label,
 }: Props) {
   const [photos, setPhotos] = useState<PhotoMeta[] | null>(null);
@@ -73,7 +76,7 @@ export function PhotoUploader({
     if (!files || files.length === 0) return;
     setError(null);
     setUploading(true);
-    for (const file of Array.from(files)) {
+    for (const file of Array.from(files).slice(0, single ? 1 : undefined)) {
       if (file.size > MAX_BYTES_DEFAULT) {
         setError(`Arquivo "${file.name}" excede 8MB.`);
         continue;
@@ -143,17 +146,20 @@ export function PhotoUploader({
           </div>
         ))}
 
-        <label className="inline-flex h-24 w-24 cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-white text-center text-[11px] font-medium text-gray-500 hover:bg-gray-50">
-          {uploading ? "Enviando…" : "+ Adicionar"}
-          <input
-            ref={inputRef}
-            type="file"
-            accept={ACCEPT}
-            multiple
-            className="hidden"
-            onChange={(e) => onUpload(e.target.files)}
-          />
-        </label>
+        {(!single || (photos !== null && visible.length === 0)) && (
+          <label className="inline-flex h-24 w-24 cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-white text-center text-[11px] font-medium text-gray-500 hover:bg-gray-50">
+            {uploading ? "Enviando…" : single ? "+ Foto" : "+ Adicionar"}
+            <input
+              ref={inputRef}
+              type="file"
+              accept={ACCEPT}
+              multiple={!single}
+              aria-label={label ? `Foto: ${label}` : "Adicionar foto"}
+              className="hidden"
+              onChange={(e) => onUpload(e.target.files)}
+            />
+          </label>
+        )}
       </div>
     </div>
   );

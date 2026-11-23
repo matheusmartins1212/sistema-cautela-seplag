@@ -148,7 +148,7 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
             Observações
           </h2>
-          {c.hasChangesFromInitial && <Row label="Alterações em relação ao inicial" value="Sim" />}
+          {c.hasChangesFromInitial && <Row label="Alterações desde a saída" value="Sim" />}
           {c.changesDescription && (
             <Row label="Descrição das alterações" value={c.changesDescription} />
           )}
