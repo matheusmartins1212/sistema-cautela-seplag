@@ -24,12 +24,11 @@ export default async function NovaSolicitacaoPage() {
         <Link href="/solicitacoes" className="text-sm text-institutional-700 hover:underline">
           ← Minhas solicitações
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-institutional-900">
-          Nova solicitação de transporte
-        </h1>
+        <h1 className="mt-2 text-2xl font-bold text-institutional-900">Nova solicitação</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Informe quando, de onde, para onde e quantas pessoas vão. A central analisa o pedido,
-          define o veículo e aciona o condutor. Seus dados funcionais vêm do seu cadastro.
+          Peça um veículo com condutor da central ou para você mesmo dirigir. A central analisa o
+          pedido e define o veículo (e o condutor, quando for o caso). Seus dados funcionais vêm do
+          seu cadastro.
         </p>
       </div>
 

@@ -8,6 +8,7 @@ import { UserStatusBadge } from "@/components/users/user-status-badge";
 import { USER_ROLE_LABEL } from "@/components/users/labels";
 import { UserActions } from "@/components/users/user-actions";
 import { DriverProfileForm } from "@/components/drivers/driver-profile-form";
+import { formatPhoneBr } from "@/shared/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function AdminUsuarioDetailPage({ params }: Props) {
             <Row label="E-mail" value={user.email} />
             <Row label="CPF" value={user.cpfMasked} />
             <Row label="Matrícula" value={user.registrationNumber} />
-            <Row label="Telefone" value={user.phone} />
+            <Row label="Telefone" value={formatPhoneBr(user.phone)} />
             <Row label="Órgão" value={user.agency ?? "—"} />
             <Row label="Setor" value={user.sector} />
             <Row label="Lotação" value={user.department} />
@@ -68,12 +69,20 @@ export default async function AdminUsuarioDetailPage({ params }: Props) {
 
         <section className="rounded-card border border-gray-200 bg-white p-5 shadow-card lg:col-span-2">
           <h2 className="mb-4 text-sm font-semibold text-gray-700">Condutor</h2>
-          <DriverProfileForm
-            userId={user.id}
-            isDriver={user.isDriver}
-            driverLicenseCategory={user.driverLicenseCategory}
-            driverLicenseExpiresAt={user.driverLicenseExpiresAt}
-          />
+          {user.role === "USER" ? (
+            <DriverProfileForm
+              userId={user.id}
+              isDriver={user.isDriver}
+              driverLicenseCategory={user.driverLicenseCategory}
+              driverLicenseExpiresAt={user.driverLicenseExpiresAt}
+            />
+          ) : (
+            <p className="text-sm text-gray-600">
+              Administradores não são escalados como condutores, porque os checklists ficam na área
+              do servidor. Se esta pessoa também dirige, crie para ela uma conta de usuário e
+              habilite como condutor por lá.
+            </p>
+          )}
         </section>
       </div>
     </div>

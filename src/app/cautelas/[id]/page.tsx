@@ -8,6 +8,7 @@ import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { ChecklistActions } from "@/components/checklists/checklist-actions";
 import { formatInstantBr } from "@/shared/time";
 import { responsibleUserId } from "@/server/modules/cautions/responsible";
+import { formatPhoneBr } from "@/shared/phone";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -111,13 +112,16 @@ export default async function ViagemDetalhePage({ params }: Props) {
               }
             />
           )}
-          <Row label="Contato no dia" value={c.request?.contactPhone ?? c.user?.phone ?? "—"} />
+          <Row
+            label="Contato no dia"
+            value={formatPhoneBr(c.request?.contactPhone ?? c.user?.phone) || "—"}
+          />
           <Row
             label="Condutor"
             value={
               c.driver
-                ? `${c.driver.fullName} · ${c.driver.phone}`
-                : "O próprio solicitante (cautela)"
+                ? `${c.driver.fullName} · ${formatPhoneBr(c.driver.phone)}`
+                : "O próprio solicitante dirige"
             }
           />
         </dl>

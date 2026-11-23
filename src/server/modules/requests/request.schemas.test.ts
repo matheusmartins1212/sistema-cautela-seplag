@@ -15,6 +15,7 @@ const baseInput = {
   shift: "MATUTINO",
   withdrawalTime: "08:00",
   returnTime: "12:00",
+  withDriver: true,
   origin: "SEPLAG - CPA",
   destination: "Rondonópolis - MT",
   reason: "Operação Energisa",
@@ -103,8 +104,29 @@ describe("createRequestSchema", () => {
     expect(createRequestSchema.safeParse(semTurno).success).toBe(true);
   });
 
-  it("exige local de saída", () => {
+  it("com condutor: exige local de saída e passageiros", () => {
     expect(createRequestSchema.safeParse({ ...baseInput, origin: "" }).success).toBe(false);
+    expect(createRequestSchema.safeParse({ ...baseInput, passengerCount: "" }).success).toBe(false);
+  });
+
+  it("sem condutor: local de saída e passageiros são dispensados", () => {
+    const r = createRequestSchema.safeParse({
+      ...baseInput,
+      withDriver: false,
+      origin: "",
+      passengerCount: "",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.origin).toBeNull();
+      expect(r.data.passengerCount).toBeUndefined();
+    }
+  });
+
+  it("modalidade padrão é sem condutor (cautela tradicional)", () => {
+    const { withDriver: _ignored, ...rest } = baseInput;
+    const r = createRequestSchema.parse({ ...rest, origin: null, passengerCount: null });
+    expect(r.withDriver).toBe(false);
   });
 
   it("exige ao menos 1 passageiro e aceita número vindo como texto", () => {
@@ -159,9 +181,10 @@ describe("deriveShift", () => {
 });
 
 describe("approveRequestSchema", () => {
-  it("exige veículo e condutor", () => {
+  it("exige veículo; condutor é opcional (checado conforme a modalidade no serviço)", () => {
     expect(approveRequestSchema.safeParse({}).success).toBe(false);
-    expect(approveRequestSchema.safeParse({ vehicleId: "v1" }).success).toBe(false);
+    expect(approveRequestSchema.safeParse({ vehicleId: "v1" }).success).toBe(true);
+    expect(approveRequestSchema.parse({ vehicleId: "v1", driverId: "" }).driverId).toBeNull();
     expect(approveRequestSchema.safeParse({ vehicleId: "v1", driverId: "d1" }).success).toBe(true);
   });
 });

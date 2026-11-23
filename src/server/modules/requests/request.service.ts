@@ -2,6 +2,7 @@ import {
   CautionStatus,
   Prisma,
   RequestStatus,
+  UserRole,
   UserStatus,
   VehicleStatus,
   type Caution,
@@ -129,10 +130,11 @@ export async function createRequest(
           shift: input.shift ?? deriveShift(input),
           withdrawalTime: input.withdrawalTime,
           returnTime: input.returnTime,
-          origin: input.origin,
+          withDriver: input.withDriver,
+          origin: input.origin ?? null,
           destination: input.destination,
           reason: input.reason,
-          passengerCount: input.passengerCount,
+          passengerCount: input.passengerCount ?? null,
           passengerNames: input.passengerNames ?? null,
           contactPhone: input.contactPhone ?? actor.user.phone,
           requestingAgency,
@@ -440,7 +442,9 @@ export async function listDriverOptionsForRequest(
   const end = combineDateTime(req!.returnDate, req!.returnTime);
 
   const drivers = await prisma.user.findMany({
-    where: { isDriver: true, status: UserStatus.ACTIVE, deletedAt: null },
+    // Só perfis de usuário: administradores não acessam a área onde ficam os
+    // checklists do condutor.
+    where: { isDriver: true, role: UserRole.USER, status: UserStatus.ACTIVE, deletedAt: null },
     orderBy: [{ fullName: "asc" }],
     include: {
       drivenCautions: {
@@ -497,7 +501,8 @@ export interface ApproveRequestResult {
   request: VehicleRequest;
   caution: Caution;
   vehicle: Vehicle;
-  driver: User;
+  /** Nulo quando o próprio solicitante dirige (cautela tradicional). */
+  driver: User | null;
 }
 
 export async function approveRequest(
@@ -555,31 +560,46 @@ export async function approveRequest(
     }
   }
 
-  // Condutor: precisa estar ativo, habilitado como condutor, com CNH válida
-  // até o fim da viagem e livre no período.
-  const driver = await prisma.user.findFirst({
-    where: { id: input.driverId, deletedAt: null },
-  });
-  if (!driver || !driver.isDriver) throw Errors.notFound("Condutor não encontrado.");
-  if (driver.status !== UserStatus.ACTIVE) {
-    throw Errors.conflict("Condutor está com o acesso inativo ou bloqueado.");
+  // Condutor: obrigatório quando o pedido foi "com condutor"; opcional quando o
+  // próprio solicitante ia dirigir (a central pode preferir mandar um condutor).
+  // Se houver, precisa estar ativo, habilitado, com CNH válida até o fim da
+  // viagem e livre no período.
+  if (req!.withDriver && !input.driverId) {
+    throw Errors.validation("Esta solicitação pediu condutor. Selecione o condutor.", {
+      driverId: ["Selecione o condutor."],
+    });
   }
-  if (isLicenseExpiredFor(driver.driverLicenseExpiresAt, req!.returnDate)) {
-    throw Errors.conflict("A CNH do condutor vence antes do fim da viagem.");
-  }
-  // Conta também cautelas antigas em que ele mesmo dirigia (sem condutor).
-  const driverTrips = await prisma.caution.findMany({
-    where: {
-      ...responsibleWhere(driver.id),
-      status: { in: [...BLOCKING_CAUTION_STATUSES] },
-    },
-    select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true },
-  });
-  for (const c of driverTrips) {
-    if (
-      hasDateRangeConflict(newPeriodStart, newPeriodEnd, c.plannedWithdrawalAt, c.plannedReturnAt)
-    ) {
-      throw Errors.conflict(`Condutor já tem viagem no período (${c.publicCode}).`);
+  let driver: User | null = null;
+  if (input.driverId) {
+    driver = await prisma.user.findFirst({
+      where: { id: input.driverId, deletedAt: null },
+    });
+    if (!driver || !driver.isDriver) throw Errors.notFound("Condutor não encontrado.");
+    if (driver.role !== UserRole.USER) {
+      throw Errors.conflict(
+        "Condutor precisa ter perfil de usuário: o painel administrativo não preenche checklists.",
+      );
+    }
+    if (driver.status !== UserStatus.ACTIVE) {
+      throw Errors.conflict("Condutor está com o acesso inativo ou bloqueado.");
+    }
+    if (isLicenseExpiredFor(driver.driverLicenseExpiresAt, req!.returnDate)) {
+      throw Errors.conflict("A CNH do condutor vence antes do fim da viagem.");
+    }
+    // Conta também cautelas em que ele mesmo dirigia (sem condutor).
+    const driverTrips = await prisma.caution.findMany({
+      where: {
+        ...responsibleWhere(driver.id),
+        status: { in: [...BLOCKING_CAUTION_STATUSES] },
+      },
+      select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true },
+    });
+    for (const c of driverTrips) {
+      if (
+        hasDateRangeConflict(newPeriodStart, newPeriodEnd, c.plannedWithdrawalAt, c.plannedReturnAt)
+      ) {
+        throw Errors.conflict(`Condutor já tem viagem no período (${c.publicCode}).`);
+      }
     }
   }
 
@@ -595,7 +615,7 @@ export async function approveRequest(
             publicCode: generateCautionCode(toAppWallClock(new Date())),
             requestId: id,
             userId: req!.userId,
-            driverId: driver.id,
+            driverId: driver?.id ?? null,
             vehicleId: vehicle.id,
             status: CautionStatus.AGUARDANDO_RETIRADA,
             approvedByAdminId: actor.user.id,
@@ -655,19 +675,22 @@ export async function approveRequest(
       cautionCode: result.caution.publicCode,
       vehicleId: vehicle.id,
       vehiclePlate: vehicle.plate,
-      driverId: driver.id,
+      driverId: driver?.id ?? null,
+      withDriver: driver !== null,
     },
     context,
   });
 
   const vehicleLabel = `${vehicle.brand} ${vehicle.model} — ${vehicle.plate}`;
 
-  // Solicitante: transporte confirmado, com veículo e condutor (best effort).
+  // Solicitante: aprovação com o veículo e, se houver, o condutor (best effort).
   await createNotification({
     userId: req!.userId,
     type: "REQUEST_APPROVED",
-    title: "Transporte confirmado",
-    message: `Sua solicitação ${result.request.publicCode} foi aprovada. Veículo: ${vehicle.brand} ${vehicle.model} (${vehicle.plate}). Condutor: ${driver.fullName}, ${driver.phone}.`,
+    title: driver ? "Transporte confirmado" : "Solicitação aprovada",
+    message: driver
+      ? `Sua solicitação ${result.request.publicCode} foi aprovada. Veículo: ${vehicle.brand} ${vehicle.model} (${vehicle.plate}). Condutor: ${driver.fullName}, ${driver.phone}.`
+      : `Sua solicitação ${result.request.publicCode} foi aprovada. Veículo: ${vehicle.brand} ${vehicle.model} (${vehicle.plate}). Na retirada, preencha o checklist de saída.`,
     relatedEntityType: "VehicleRequest",
     relatedEntityId: id,
   });
@@ -679,8 +702,8 @@ export async function approveRequest(
       publicCode: result.request.publicCode,
       cautionCode: result.caution.publicCode,
       vehicleLabel,
-      driverName: driver.fullName,
-      driverPhone: driver.phone,
+      driverName: driver?.fullName ?? null,
+      driverPhone: driver?.phone ?? null,
       withdrawalDate: formatDateBr(result.request.withdrawalDate),
       withdrawalTime: result.request.withdrawalTime,
       returnDate: formatDateBr(result.request.returnDate),
@@ -690,36 +713,38 @@ export async function approveRequest(
     }),
   ).catch(() => undefined);
 
-  // Condutor: aviso da nova viagem (best effort).
-  await createNotification({
-    userId: driver.id,
-    type: "TRIP_ASSIGNED",
-    title: "Nova viagem",
-    message: `Você foi escalado para a viagem ${result.caution.publicCode}: saída ${formatDateBr(result.request.withdrawalDate)} às ${result.request.withdrawalTime}, destino ${result.request.destination}.`,
-    relatedEntityType: "Caution",
-    relatedEntityId: result.caution.id,
-  });
+  if (driver) {
+    // Condutor: aviso da nova viagem (best effort).
+    await createNotification({
+      userId: driver.id,
+      type: "TRIP_ASSIGNED",
+      title: "Nova viagem",
+      message: `Você foi escalado para a viagem ${result.caution.publicCode}: saída ${formatDateBr(result.request.withdrawalDate)} às ${result.request.withdrawalTime}, destino ${result.request.destination}.`,
+      relatedEntityType: "Caution",
+      relatedEntityId: result.caution.id,
+    });
 
-  void sendTransactionalEmail(
-    buildTripAssigned({
-      to: driver.email,
-      fullName: driver.fullName,
-      cautionCode: result.caution.publicCode,
-      vehicleLabel,
-      origin: result.request.origin ?? "local a combinar com a central",
-      destination: result.request.destination,
-      passengerCount: result.request.passengerCount,
-      requesterName: req!.user.fullName,
-      requesterAgency: result.request.requestingAgency,
-      contactPhone: result.request.contactPhone ?? req!.user.phone,
-      withdrawalDate: formatDateBr(result.request.withdrawalDate),
-      withdrawalTime: result.request.withdrawalTime,
-      returnDate: formatDateBr(result.request.returnDate),
-      returnTime: result.request.returnTime,
-      detailsUrl: `${env.APP_BASE_URL}/cautelas/${result.caution.id}`,
-      cautionId: result.caution.id,
-    }),
-  ).catch(() => undefined);
+    void sendTransactionalEmail(
+      buildTripAssigned({
+        to: driver.email,
+        fullName: driver.fullName,
+        cautionCode: result.caution.publicCode,
+        vehicleLabel,
+        origin: result.request.origin ?? "local a combinar com a central",
+        destination: result.request.destination,
+        passengerCount: result.request.passengerCount,
+        requesterName: req!.user.fullName,
+        requesterAgency: result.request.requestingAgency,
+        contactPhone: result.request.contactPhone ?? req!.user.phone,
+        withdrawalDate: formatDateBr(result.request.withdrawalDate),
+        withdrawalTime: result.request.withdrawalTime,
+        returnDate: formatDateBr(result.request.returnDate),
+        returnTime: result.request.returnTime,
+        detailsUrl: `${env.APP_BASE_URL}/cautelas/${result.caution.id}`,
+        cautionId: result.caution.id,
+      }),
+    ).catch(() => undefined);
+  }
 
   return result;
 }

@@ -13,6 +13,7 @@ import { RequestStatusBadge } from "@/components/requests/request-status-badge";
 import { AdminDecisionPanel } from "@/components/requests/admin-decision-panel";
 import { TransportDetails } from "@/components/requests/transport-details";
 import { formatPlate } from "@/shared/validation/plate";
+import { formatPhoneBr } from "@/shared/phone";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -84,7 +85,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
           <Row label="Nome" value={r.user?.fullName ?? "—"} />
           <Row label="Matrícula" value={r.user?.registrationNumber ?? "—"} />
           <Row label="E-mail" value={r.user?.email ?? "—"} />
-          <Row label="Telefone" value={r.user?.phone ?? "—"} />
+          <Row label="Telefone" value={r.user?.phone ? formatPhoneBr(r.user.phone) : "—"} />
           <Row label="Órgão" value={r.user?.agency ?? "—"} />
           <Row label="Setor" value={r.user?.sector ?? "—"} />
           <Row label="Lotação" value={r.user?.department ?? "—"} />
@@ -93,7 +94,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
 
       <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Transporte solicitado
+          Dados da solicitação
         </h2>
         <TransportDetails r={r} />
       </section>
@@ -111,7 +112,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
           <p className="mt-1 text-sm text-gray-800">
             Condutor:{" "}
             {r.caution.driver
-              ? `${r.caution.driver.fullName} · ${r.caution.driver.phone}`
+              ? `${r.caution.driver.fullName} · ${formatPhoneBr(r.caution.driver.phone)}`
               : "o próprio solicitante (cautela)"}
           </p>
           {r.adminNotes && <p className="mt-2 text-xs text-gray-600">Observação: {r.adminNotes}</p>}
@@ -143,6 +144,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
             availableVehicles={availableVehicles}
             availableDrivers={availableDrivers}
             passengerCount={r.passengerCount}
+            withDriver={r.withDriver}
           />
         </section>
       )}

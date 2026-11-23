@@ -14,6 +14,8 @@ export interface PublicVehicleRequest {
   shift: Shift;
   withdrawalTime: string; // HH:mm
   returnTime: string;
+  /** true = a central envia condutor; false = o próprio solicitante dirige. */
+  withDriver: boolean;
   origin: string | null;
   destination: string;
   reason: string;
@@ -84,6 +86,7 @@ export function toPublicRequest(
     shift: req.shift,
     withdrawalTime: req.withdrawalTime,
     returnTime: req.returnTime,
+    withDriver: req.withDriver,
     origin: req.origin,
     destination: req.destination,
     reason: req.reason,

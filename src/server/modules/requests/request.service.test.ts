@@ -106,6 +106,7 @@ const baseRequest = {
   passengerNames: null,
   contactPhone: "65999990000",
   requestingAgency: "SEPLAG",
+  withDriver: true,
   termNumber: null,
   status: "PENDENTE_ANALISE" as const,
   adminId: null,
@@ -125,6 +126,7 @@ const baseInput = {
   destination: "Rondonópolis",
   reason: "Operação Energisa",
   passengerCount: 3,
+  withDriver: true,
   termNumber: null,
 };
 
@@ -425,7 +427,7 @@ describe("approveRequest", () => {
         data: expect.objectContaining({ driverId: "d1", userId: "u1" }),
       }),
     );
-    expect(result.driver.id).toBe("d1");
+    expect(result.driver?.id).toBe("d1");
     expect(createNotification).toHaveBeenCalledWith(
       expect.objectContaining({ type: "TRIP_ASSIGNED", userId: "d1" }),
     );
@@ -434,6 +436,55 @@ describe("approveRequest", () => {
       (c) => c[0].template,
     );
     expect(templates).toEqual(expect.arrayContaining(["REQUEST_APPROVED", "TRIP_ASSIGNED"]));
+  });
+
+  it("pedido com condutor exige escolher o condutor", async () => {
+    await expect(
+      approveRequest("r1", { vehicleId: "v1", driverId: null }, baseAdminActor),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(prisma.caution.create).not.toHaveBeenCalled();
+  });
+
+  it("pedido sem condutor: aprova só com o veículo e o solicitante fica responsável", async () => {
+    (prisma.vehicleRequest.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseRequest,
+      withDriver: false,
+      origin: null,
+      passengerCount: null,
+      user: baseUser,
+    });
+    const result = await approveRequest("r1", { vehicleId: "v1" }, baseAdminActor);
+
+    expect(result.driver).toBeNull();
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    expect(prisma.caution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ driverId: null, userId: "u1" }),
+      }),
+    );
+    expect(createNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "TRIP_ASSIGNED" }),
+    );
+  });
+
+  it("pedido sem condutor: a central ainda pode escalar um condutor", async () => {
+    (prisma.vehicleRequest.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseRequest,
+      withDriver: false,
+      user: baseUser,
+    });
+    const result = await approveRequest("r1", approveInput, baseAdminActor);
+    expect(result.driver?.id).toBe("d1");
+  });
+
+  it("rejeita condutor com perfil de administrador", async () => {
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseDriver,
+      role: "ADMIN",
+    });
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
   });
 
   it("rejeita usuário que não é condutor", async () => {

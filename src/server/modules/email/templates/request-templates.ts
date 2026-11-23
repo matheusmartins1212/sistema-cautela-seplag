@@ -66,8 +66,9 @@ export interface RequestApprovedParams {
   publicCode: string;
   cautionCode: string;
   vehicleLabel: string; // ex.: "L200 Triton — RRZ-5I81"
-  driverName: string;
-  driverPhone: string;
+  /** Nulos quando o próprio solicitante dirige (cautela tradicional). */
+  driverName: string | null;
+  driverPhone: string | null;
   withdrawalDate: string;
   withdrawalTime: string;
   returnDate: string;
@@ -82,11 +83,13 @@ export function buildRequestApproved(p: RequestApprovedParams): EmailMessage {
     p.to,
     `Solicitação aprovada (${p.publicCode}) - Central de Veículos`,
     {
-      heading: "Seu transporte foi confirmado",
+      heading: p.driverName ? "Seu transporte foi confirmado" : "Sua solicitação foi aprovada",
       paragraphs: [
         `Olá, ${escapeHtml(p.fullName)}.`,
         `Sua solicitação <strong>${escapeHtml(p.publicCode)}</strong> foi aprovada e gerou a viagem <strong>${escapeHtml(p.cautionCode)}</strong>.`,
-        `Veículo: <strong>${escapeHtml(p.vehicleLabel)}</strong>.<br>Condutor: <strong>${escapeHtml(p.driverName)}</strong> (${escapeHtml(p.driverPhone)}).`,
+        p.driverName
+          ? `Veículo: <strong>${escapeHtml(p.vehicleLabel)}</strong>.<br>Condutor: <strong>${escapeHtml(p.driverName)}</strong> (${escapeHtml(p.driverPhone ?? "")}).`
+          : `Veículo: <strong>${escapeHtml(p.vehicleLabel)}</strong>.<br>Você mesmo retira e dirige: na retirada, preencha o checklist de saída no sistema.`,
         `Saída: ${escapeHtml(p.withdrawalDate)} às ${escapeHtml(p.withdrawalTime)}.<br>Retorno previsto: ${escapeHtml(p.returnDate)} às ${escapeHtml(p.returnTime)}.`,
       ],
       action: { label: "Ver solicitação", url: p.detailsUrl },

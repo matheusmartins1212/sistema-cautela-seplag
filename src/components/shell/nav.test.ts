@@ -70,7 +70,7 @@ describe("item aceso no menu", () => {
       "Minhas solicitações",
     ]);
     expect(highlighted("/admin/checklists/cmwfkg860000ssn7di5gvtdw7", ADMIN_NAV)).toEqual([
-      "Cautelas",
+      "Viagens",
     ]);
     expect(highlighted("/admin/veiculos/novo", ADMIN_NAV)).toEqual(["Veículos"]);
     expect(highlighted("/admin", ADMIN_NAV)).toEqual(["Painel"]);

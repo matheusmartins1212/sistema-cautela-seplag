@@ -191,8 +191,8 @@ export async function getUserDashboard(user: {
         destination: true,
       },
     }),
-    // Quem não é condutor só vê o bloco de viagens se ainda tiver cautela
-    // antiga ativa (em que ele mesmo dirigia).
+    // Quem não é condutor vê o bloco de viagens quando tem cautela ativa em
+    // que ele mesmo dirige (modalidade sem condutor).
     user.isDriver
       ? Promise.resolve(0)
       : prisma.caution.count({

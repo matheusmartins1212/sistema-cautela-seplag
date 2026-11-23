@@ -50,7 +50,12 @@ interface Props {
   availableVehicles: VehicleOption[];
   availableDrivers: DriverOption[];
   passengerCount: number | null;
+  /** O solicitante pediu condutor? Se não, o condutor é opcional. */
+  withDriver: boolean;
 }
+
+/** Valor do seletor para "sem condutor: o próprio solicitante dirige". */
+const NO_DRIVER = "__sem_condutor__";
 
 type Mode = "approve" | "reject" | "cancel" | null;
 
@@ -59,11 +64,13 @@ export function AdminDecisionPanel({
   availableVehicles,
   availableDrivers,
   passengerCount,
+  withDriver,
 }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(null);
   const [vehicleId, setVehicleId] = useState("");
-  const [driverId, setDriverId] = useState("");
+  const initialDriver = withDriver ? "" : NO_DRIVER;
+  const [driverId, setDriverId] = useState(initialDriver);
   const [adminNotes, setAdminNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
@@ -74,7 +81,7 @@ export function AdminDecisionPanel({
   function reset() {
     setMode(null);
     setVehicleId("");
-    setDriverId("");
+    setDriverId(initialDriver);
     setAdminNotes("");
     setRejectionReason("");
     setCancellationReason("");
@@ -84,11 +91,13 @@ export function AdminDecisionPanel({
 
   const selectedVehicle = availableVehicles.find((v) => v.id === vehicleId);
   const selectedDriver = availableDrivers.find((d) => d.id === driverId);
+  const noDriver = driverId === NO_DRIVER;
   const canApprove = vehicleId !== "" && driverId !== "";
+  const missingMessage = withDriver ? "Selecione o veículo e o condutor." : "Selecione o veículo.";
 
   function askApprove() {
     if (!canApprove) {
-      setError("Selecione o veículo e o condutor.");
+      setError(missingMessage);
       return;
     }
     setError(null);
@@ -106,14 +115,14 @@ export function AdminDecisionPanel({
 
   async function submitApprove() {
     if (!canApprove) {
-      setError("Selecione o veículo e o condutor.");
+      setError(missingMessage);
       return;
     }
     setLoading(true);
     setError(null);
     const result = await apiPost(`/api/admin/requests/${requestId}/approve`, {
       vehicleId,
-      driverId,
+      driverId: noDriver ? null : driverId,
       adminNotes: adminNotes || null,
     });
     setLoading(false);
@@ -180,7 +189,10 @@ export function AdminDecisionPanel({
     return (
       <div className="space-y-3 rounded-card border border-success/30 bg-success/5 p-4">
         <p className="text-sm font-medium text-gray-800">
-          Aprovar e definir veículo e condutor
+          {withDriver ? "Aprovar e definir veículo e condutor" : "Aprovar e definir o veículo"}
+          {!withDriver && (
+            <span className="font-normal text-gray-600"> · o solicitante pediu para dirigir</span>
+          )}
           {passengerCount !== null && (
             <span className="font-normal text-gray-600"> · {passengerCount} passageiro(s)</span>
           )}
@@ -218,9 +230,13 @@ export function AdminDecisionPanel({
           onChange={(e) => setDriverId(e.target.value)}
           required
         >
-          <option value="" disabled>
-            Selecione um condutor…
-          </option>
+          {withDriver ? (
+            <option value="" disabled>
+              Selecione um condutor…
+            </option>
+          ) : (
+            <option value={NO_DRIVER}>Sem condutor: o próprio solicitante dirige</option>
+          )}
           {availableDrivers.length === 0 && (
             <option disabled>Nenhum condutor habilitado. Cadastre em Condutores.</option>
           )}
@@ -232,7 +248,8 @@ export function AdminDecisionPanel({
             </option>
           ))}
         </Select>
-        {availableDrivers.length > 0 &&
+        {withDriver &&
+          availableDrivers.length > 0 &&
           availableDrivers.every((d) => d.conflictCode !== null || d.licenseExpired) && (
             <Alert tone="warning">
               Nenhum condutor livre nesse período. Recuse a solicitação ou combine outro horário com
@@ -266,8 +283,17 @@ export function AdminDecisionPanel({
                   ? `${selectedVehicle.brand} ${selectedVehicle.model} (${selectedVehicle.plateFormatted})`
                   : ""}
               </strong>{" "}
-              sai com o condutor <strong>{selectedDriver?.fullName ?? ""}</strong>. A viagem será
-              criada e o solicitante e o condutor serão avisados por e-mail.
+              {noDriver ? (
+                <>
+                  fica com o próprio solicitante, que retira, dirige e preenche os checklists. Ele
+                  será avisado por e-mail.
+                </>
+              ) : (
+                <>
+                  sai com o condutor <strong>{selectedDriver?.fullName ?? ""}</strong>. A viagem
+                  será criada e o solicitante e o condutor serão avisados por e-mail.
+                </>
+              )}
             </>
           }
           confirmLabel="Aprovar"

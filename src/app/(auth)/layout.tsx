@@ -3,8 +3,8 @@ import brasao from "@/assets/brasao-mt.png";
 import { env } from "@/server/config/env";
 
 const FEATURES = [
-  "Órgãos solicitam o transporte on-line",
-  "A central define veículo e condutor",
+  "Pedido de veículo on-line, com ou sem condutor",
+  "A central define o veículo e, se pedido, o condutor",
   "Checklist de saída e retorno com fotos",
 ];
 

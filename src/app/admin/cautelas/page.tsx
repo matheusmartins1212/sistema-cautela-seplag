@@ -10,6 +10,7 @@ import { toPublicCaution } from "@/server/modules/cautions/caution.dto";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { CAUTION_STATUS_LABEL } from "@/components/cautions/labels";
 import { CancelCautionButton } from "@/components/cautions/cancel-caution-button";
+import { formatPhoneBr } from "@/shared/phone";
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -138,10 +139,12 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
                     {cau.driver ? (
                       <>
                         <div className="font-medium text-gray-900">{cau.driver.fullName}</div>
-                        <div className="text-xs text-gray-500">{cau.driver.phone}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatPhoneBr(cau.driver.phone)}
+                        </div>
                       </>
                     ) : (
-                      <span className="text-xs text-gray-500">Solicitante (cautela)</span>
+                      <span className="text-xs text-gray-500">O próprio solicitante dirige</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

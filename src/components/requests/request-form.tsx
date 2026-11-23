@@ -28,8 +28,10 @@ interface ApiResponse {
 const OUTRO = "Outro";
 
 /**
- * Pedido de transporte à central: o órgão informa quando, de onde, para onde,
- * quantas pessoas e para quê. Veículo e condutor ficam a cargo da central.
+ * Pedido à central, em duas modalidades:
+ * - com condutor: a central envia veículo e motorista; o pedido informa de
+ *   onde sai e quantas pessoas vão;
+ * - sem condutor: cautela tradicional, o próprio servidor retira e dirige.
  */
 export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Props) {
   const router = useRouter();
@@ -38,6 +40,7 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [selectedReason, setSelectedReason] = useState<string>("");
   const [otherReason, setOtherReason] = useState<string>("");
+  const [withDriver, setWithDriver] = useState<boolean | null>(null);
 
   const reasonNeedsCustom = selectedReason === OUTRO;
   const finalReason = reasonNeedsCustom ? otherReason : selectedReason;
@@ -45,9 +48,14 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setFieldErrors({});
+    if (withDriver === null) {
+      setFieldErrors({ withDriver: ["Escolha como será a viagem."] });
+      setError("Escolha como será a viagem: com condutor da central ou você mesmo dirigindo.");
+      return;
+    }
+    setLoading(true);
 
     const f = new FormData(e.currentTarget);
     const payload = {
@@ -55,10 +63,11 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
       withdrawalTime: f.get("withdrawalTime"),
       returnDate: f.get("returnDate"),
       returnTime: f.get("returnTime"),
-      origin: f.get("origin"),
+      withDriver,
+      origin: withDriver ? f.get("origin") : null,
       destination: f.get("destination"),
-      passengerCount: f.get("passengerCount"),
-      passengerNames: f.get("passengerNames") || null,
+      passengerCount: withDriver ? f.get("passengerCount") : null,
+      passengerNames: withDriver ? f.get("passengerNames") || null : null,
       reason: finalReason,
       contactPhone: f.get("contactPhone") || null,
       agency: mustPickAgency ? f.get("agency") : null,
@@ -115,6 +124,29 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
         )}
       </fieldset>
 
+      <fieldset>
+        <legend className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
+          Como será a viagem?
+        </legend>
+        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup">
+          <ModeOption
+            checked={withDriver === true}
+            onSelect={() => setWithDriver(true)}
+            title="Com condutor da central"
+            description="A central envia o veículo com motorista para buscar você e os passageiros."
+          />
+          <ModeOption
+            checked={withDriver === false}
+            onSelect={() => setWithDriver(false)}
+            title="Eu mesmo dirijo"
+            description="Você retira o veículo, dirige e devolve, preenchendo os checklists (cautela)."
+          />
+        </div>
+        {fieldErrors.withDriver && (
+          <p className="mt-2 text-xs text-danger">{fieldErrors.withDriver[0]}</p>
+        )}
+      </fieldset>
+
       <fieldset className="space-y-4">
         <legend className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
           Quando
@@ -155,14 +187,16 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
         <legend className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
           Trajeto
         </legend>
-        <Field
-          label="Local de saída"
-          name="origin"
-          placeholder="Ex.: Centro Político Administrativo, Cuiabá"
-          hint="Onde o condutor deve buscar os passageiros."
-          errors={fieldErrors.origin}
-          required
-        />
+        {withDriver && (
+          <Field
+            label="Local de saída"
+            name="origin"
+            placeholder="Ex.: Centro Político Administrativo, Cuiabá"
+            hint="Onde o condutor deve buscar os passageiros."
+            errors={fieldErrors.origin}
+            required
+          />
+        )}
         <Field
           label="Destino"
           name="destination"
@@ -174,35 +208,43 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
 
       <fieldset className="space-y-4">
         <legend className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Passageiros e finalidade
+          {withDriver ? "Passageiros e finalidade" : "Contato e finalidade"}
         </legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            label="Número de passageiros"
-            name="passengerCount"
-            type="number"
-            min={1}
-            max={60}
-            defaultValue={1}
-            errors={fieldErrors.passengerCount}
-            required
-          />
+          {withDriver && (
+            <Field
+              label="Número de passageiros"
+              name="passengerCount"
+              type="number"
+              min={1}
+              max={60}
+              defaultValue={1}
+              errors={fieldErrors.passengerCount}
+              required
+            />
+          )}
           <Field
             label="Telefone de contato no dia"
             name="contactPhone"
             type="tel"
             defaultValue={defaultPhone}
-            hint="O condutor usa este número para combinar o embarque."
+            hint={
+              withDriver
+                ? "O condutor usa este número para combinar o embarque."
+                : "A central usa este número se precisar falar com você."
+            }
             errors={fieldErrors.contactPhone}
           />
         </div>
-        <Textarea
-          label="Nomes dos passageiros (opcional)"
-          name="passengerNames"
-          rows={3}
-          hint="Um por linha, se já souber quem vai."
-          errors={fieldErrors.passengerNames}
-        />
+        {withDriver && (
+          <Textarea
+            label="Nomes dos passageiros (opcional)"
+            name="passengerNames"
+            rows={3}
+            hint="Um por linha, se já souber quem vai."
+            errors={fieldErrors.passengerNames}
+          />
+        )}
         <Select
           label="Finalidade da viagem"
           name="reasonSelect"
@@ -242,5 +284,46 @@ export function RequestForm({ reasons, userAgency, agencies, defaultPhone }: Pro
         </Button>
       </div>
     </form>
+  );
+}
+
+function ModeOption({
+  checked,
+  onSelect,
+  title,
+  description,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onSelect}
+      className={
+        checked
+          ? "flex items-start gap-3 rounded-card border-2 border-institutional-700 bg-institutional-50 p-4 text-left"
+          : "flex items-start gap-3 rounded-card border-2 border-gray-200 bg-white p-4 text-left hover:border-institutional-300"
+      }
+    >
+      <span
+        aria-hidden="true"
+        className={
+          checked
+            ? "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-institutional-700"
+            : "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-gray-300"
+        }
+      >
+        {checked && <span className="h-2 w-2 rounded-full bg-institutional-700" />}
+      </span>
+      <span>
+        <span className="block text-sm font-semibold text-gray-900">{title}</span>
+        <span className="mt-0.5 block text-sm text-gray-600">{description}</span>
+      </span>
+    </button>
   );
 }

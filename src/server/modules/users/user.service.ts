@@ -1,4 +1,4 @@
-import { Prisma, UserStatus, type User } from "@prisma/client";
+import { Prisma, UserRole, UserStatus, type User } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { Errors } from "@/server/lib/errors";
 import { recordAudit } from "@/server/lib/audit";
@@ -142,7 +142,10 @@ export async function changeUserRole(
 
   const updated = await prisma.user.update({
     where: { id },
-    data: { role: input.role },
+    // Quem vira administrador deixa de ser condutor: o painel administrativo
+    // não acessa a área onde ficam os checklists da viagem.
+    data:
+      input.role === UserRole.USER ? { role: input.role } : { role: input.role, isDriver: false },
   });
 
   await recordAudit({
@@ -159,9 +162,11 @@ export async function changeUserRole(
 }
 
 /**
- * Habilita ou desabilita o usuário como condutor da central. Qualquer
- * administrador pode fazê-lo (inclusive na própria conta, já que um gestor da
- * central também pode dirigir). Desabilitar não mexe nas viagens já escaladas.
+ * Habilita ou desabilita o usuário como condutor da central. Só contas com
+ * perfil de usuário podem ser condutoras: os checklists ficam na área do
+ * servidor, que o painel administrativo não acessa. Um gestor que também
+ * dirige usa uma conta de usuário separada. Desabilitar não mexe nas viagens
+ * já escaladas.
  */
 export async function updateDriverProfile(
   id: string,
@@ -170,6 +175,11 @@ export async function updateDriverProfile(
   context?: RequestContext,
 ): Promise<User> {
   const target = await getUserByIdAdmin(id);
+  if (input.isDriver && target.role !== UserRole.USER) {
+    throw Errors.conflict(
+      "Só contas com perfil de usuário podem ser condutoras. Para um gestor que também dirige, use uma conta de usuário separada.",
+    );
+  }
 
   const updated = await prisma.user.update({
     where: { id },

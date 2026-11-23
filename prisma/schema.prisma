@@ -370,6 +370,9 @@ model VehicleRequest {
   passengerCount   Int?
   passengerNames   String?
   contactPhone     String? // contato do responsável no dia da viagem
+  // Modalidade: true = a central envia condutor; false = o próprio solicitante
+  // retira e dirige (cautela tradicional). Padrão false preserva os pedidos antigos.
+  withDriver       Boolean       @default(false)
   status           RequestStatus @default(PENDENTE_ANALISE)
   adminId          String?
   rejectionReason  String?

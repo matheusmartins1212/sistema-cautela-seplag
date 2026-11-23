@@ -17,6 +17,7 @@ import { ChecklistStatusBadge } from "@/components/checklists/checklist-status-b
 import { CHECKLIST_TYPE_LABEL } from "@/components/checklists/labels";
 import { VEHICLE_STATUS_LABEL } from "@/components/vehicles/labels";
 import { formatInstantBr } from "@/shared/time";
+import { formatPhoneBr } from "@/shared/phone";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -97,11 +98,11 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
             <Row label="Nome" value={c.user.fullName} />
             <Row label="Matrícula" value={c.user.registrationNumber} />
             <Row label="E-mail" value={c.user.email} />
-            <Row label="Telefone" value={c.user.phone} />
+            <Row label="Telefone" value={formatPhoneBr(c.user.phone)} />
             <Row label="Órgão" value={c.request?.requestingAgency ?? c.user.agency ?? "—"} />
             <Row label="Setor" value={c.user.sector} />
             {c.request?.contactPhone && (
-              <Row label="Contato no dia" value={c.request.contactPhone} />
+              <Row label="Contato no dia" value={formatPhoneBr(c.request.contactPhone)} />
             )}
           </dl>
         </section>
@@ -114,7 +115,7 @@ export default async function AdminCautelaDetalhePage({ params }: Props) {
         {c.driver ? (
           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <Row label="Nome" value={c.driver.fullName} />
-            <Row label="Telefone" value={c.driver.phone} />
+            <Row label="Telefone" value={formatPhoneBr(c.driver.phone)} />
             <Row label="E-mail" value={c.driver.email} />
           </dl>
         ) : (

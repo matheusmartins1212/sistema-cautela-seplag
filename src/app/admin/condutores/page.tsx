@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listDriversOverview } from "@/server/modules/users/user.service";
 import { UserStatusBadge } from "@/components/users/user-status-badge";
 import { toAppWallClock } from "@/shared/time";
+import { formatPhoneBr } from "@/shared/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ export default async function AdminCondutoresPage() {
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{user.fullName}</div>
-                    <div className="text-xs text-gray-500">{user.phone}</div>
+                    <div className="text-xs text-gray-500">{formatPhoneBr(user.phone)}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">

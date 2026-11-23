@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: "%s · Central de Veículos — SEPLAG / SATGF",
   },
   description:
-    "Central de veículos compartilhados: os órgãos solicitam o transporte e a central aciona veículo e condutor — SEPLAG / SATGF.",
+    "Central de veículos compartilhados: os órgãos pedem veículo, com ou sem condutor, e a central define veículo e condutor — SEPLAG / SATGF.",
   robots: { index: false, follow: false }, // sistema interno: não indexar
 };
 

@@ -26,7 +26,7 @@ export async function UserAreaShell({
 
   return (
     <AppShell
-      brandTitle="Cautela de Veículos"
+      brandTitle="Central de Veículos"
       contentMaxWidth="5xl"
       user={toShellUser(session.user)}
       profileHref="/perfil"

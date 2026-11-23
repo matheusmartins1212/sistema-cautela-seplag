@@ -157,6 +157,9 @@ export default async function AdminSolicitacoesPage({ searchParams }: Props) {
                   </td>
                   <td className="px-4 py-3">
                     <RequestStatusBadge status={r.status} />
+                    <div className="mt-1 text-xs text-gray-500">
+                      {r.withDriver ? "Com condutor" : "Sem condutor"}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link

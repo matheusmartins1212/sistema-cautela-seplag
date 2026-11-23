@@ -5,9 +5,11 @@ import { RequestStatus, Shift } from "@prisma/client";
  * Schemas Zod do módulo de solicitações. Toda regra crítica (datas/horários
  * coerentes, campos obrigatórios) é aplicada AQUI, no backend.
  *
- * Na central de veículos compartilhados a solicitação é um pedido de
- * transporte: o órgão informa saída, destino, passageiros e finalidade; a
- * central decide veículo e condutor.
+ * A solicitação tem duas modalidades (`withDriver`):
+ * - com condutor: pedido de transporte à central, com local de saída e
+ *   passageiros; a central escolhe veículo e condutor;
+ * - sem condutor: cautela tradicional, o próprio servidor retira e dirige;
+ *   a central escolhe só o veículo.
  *
  * Nome, CPF, matrícula, telefone, setor e lotação NÃO são aceitos do cliente —
  * o backend sempre puxa do usuário autenticado (seção 11 da especificação).
@@ -61,20 +63,42 @@ export const createRequestSchema = z
     shift: z.nativeEnum(Shift).optional(),
     withdrawalTime: time,
     returnTime: time,
-    origin: z.string().trim().min(2, "Informe o local de saída.").max(200),
+    withDriver: z.boolean().default(false),
+    origin: optionalText(200),
     destination: z.string().trim().min(2, "Informe o destino.").max(200),
     reason: z.string().trim().min(2, "Informe a finalidade da viagem.").max(200),
-    passengerCount: z.coerce
-      .number({ invalid_type_error: "Informe o número de passageiros." })
-      .int("Use um número inteiro.")
-      .min(1, "Informe ao menos 1 passageiro.")
-      .max(60, "Número de passageiros acima do permitido."),
+    passengerCount: z.preprocess(
+      (v) => (v === "" || v === null || v === undefined ? undefined : v),
+      z.coerce
+        .number({ invalid_type_error: "Informe o número de passageiros." })
+        .int("Use um número inteiro.")
+        .min(1, "Informe ao menos 1 passageiro.")
+        .max(60, "Número de passageiros acima do permitido.")
+        .optional(),
+    ),
     passengerNames: optionalText(1000),
     contactPhone: optionalText(20),
     agency: optionalText(150),
     termNumber: optionalText(60),
   })
   .superRefine((data, ctx) => {
+    // Com condutor, a central precisa saber onde buscar e quantas pessoas levar.
+    if (data.withDriver) {
+      if (!data.origin || data.origin.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["origin"],
+          message: "Informe o local de saída.",
+        });
+      }
+      if (data.passengerCount === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["passengerCount"],
+          message: "Informe o número de passageiros.",
+        });
+      }
+    }
     if (data.returnDate < data.withdrawalDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -126,7 +150,15 @@ export const listAdminRequestsQuerySchema = z.object({
 
 export const approveRequestSchema = z.object({
   vehicleId: z.string().trim().min(1, "Selecione o veículo.").max(40),
-  driverId: z.string().trim().min(1, "Selecione o condutor.").max(40),
+  // Obrigatório quando a solicitação pediu condutor (checado no serviço).
+  // Num pedido sem condutor a central ainda pode escalar um, se preferir.
+  driverId: z
+    .string()
+    .trim()
+    .max(40)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
   adminNotes: z
     .string()
     .trim()

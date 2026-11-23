@@ -7,6 +7,7 @@ import { Errors } from "@/server/lib/errors";
 import { RequestStatusBadge } from "@/components/requests/request-status-badge";
 import { CancelRequestButton } from "@/components/requests/cancel-request-button";
 import { TransportDetails } from "@/components/requests/transport-details";
+import { formatPhoneBr } from "@/shared/phone";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -55,7 +56,9 @@ export default async function SolicitacaoDetalhePage({ params }: Props) {
 
       {r.status === "APROVADA" && r.caution?.vehicle && (
         <div className="rounded-card border border-success/30 bg-success/5 p-4 text-sm">
-          <p className="font-semibold text-success">Transporte confirmado</p>
+          <p className="font-semibold text-success">
+            {r.caution.driver ? "Transporte confirmado" : "Veículo liberado para você"}
+          </p>
           <dl className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Row
               label="Veículo"
@@ -64,10 +67,10 @@ export default async function SolicitacaoDetalhePage({ params }: Props) {
             {r.caution.driver ? (
               <Row
                 label="Condutor"
-                value={`${r.caution.driver.fullName} · ${r.caution.driver.phone}`}
+                value={`${r.caution.driver.fullName} · ${formatPhoneBr(r.caution.driver.phone)}`}
               />
             ) : (
-              <Row label="Condutor" value="Você mesmo (cautela)" />
+              <Row label="Quem dirige" value="Você mesmo: preencha o checklist na retirada" />
             )}
           </dl>
           <p className="mt-3 text-xs text-gray-600">
@@ -79,7 +82,7 @@ export default async function SolicitacaoDetalhePage({ params }: Props) {
               href={`/cautelas/${r.caution.id}`}
               className="text-sm font-medium text-success hover:underline"
             >
-              Acompanhar viagem →
+              {r.caution.driver ? "Acompanhar viagem →" : "Abrir a viagem e os checklists →"}
             </Link>
           </div>
         </div>
