@@ -14,8 +14,13 @@ export interface PublicVehicleRequest {
   shift: Shift;
   withdrawalTime: string; // HH:mm
   returnTime: string;
+  origin: string | null;
   destination: string;
   reason: string;
+  passengerCount: number | null;
+  passengerNames: string | null;
+  contactPhone: string | null;
+  requestingAgency: string | null;
   termNumber: string | null;
   status: RequestStatus;
   rejectionReason: string | null;
@@ -34,6 +39,7 @@ export interface PublicVehicleRequest {
     phone: string;
     sector: string;
     department: string;
+    agency: string | null;
   };
   caution?: {
     id: string;
@@ -46,12 +52,17 @@ export interface PublicVehicleRequest {
       model: string;
       brand: string;
     };
+    driver?: {
+      id: string;
+      fullName: string;
+      phone: string;
+    } | null;
   } | null;
 }
 
 type RequestWithRelations = VehicleRequest & {
   user?: User;
-  caution?: (Caution & { vehicle?: Vehicle }) | null;
+  caution?: (Caution & { vehicle?: Vehicle; driver?: User | null }) | null;
 };
 
 function toDateOnly(date: Date): string {
@@ -73,8 +84,13 @@ export function toPublicRequest(
     shift: req.shift,
     withdrawalTime: req.withdrawalTime,
     returnTime: req.returnTime,
+    origin: req.origin,
     destination: req.destination,
     reason: req.reason,
+    passengerCount: req.passengerCount,
+    passengerNames: req.passengerNames,
+    contactPhone: req.contactPhone,
+    requestingAgency: req.requestingAgency,
     termNumber: req.termNumber,
     status: req.status,
     rejectionReason: req.rejectionReason,
@@ -94,6 +110,7 @@ export function toPublicRequest(
       phone: req.user.phone,
       sector: req.user.sector,
       department: req.user.department,
+      agency: req.user.agency,
     };
   }
 
@@ -112,6 +129,13 @@ export function toPublicRequest(
               brand: req.caution.vehicle.brand,
             }
           : undefined,
+        driver: req.caution.driver
+          ? {
+              id: req.caution.driver.id,
+              fullName: req.caution.driver.fullName,
+              phone: req.caution.driver.phone,
+            }
+          : null,
       };
     } else {
       base.caution = null;

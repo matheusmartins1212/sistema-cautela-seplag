@@ -7,6 +7,7 @@ import { toPublicUser } from "@/server/modules/users/user.dto";
 import { UserStatusBadge } from "@/components/users/user-status-badge";
 import { USER_ROLE_LABEL } from "@/components/users/labels";
 import { UserActions } from "@/components/users/user-actions";
+import { DriverProfileForm } from "@/components/drivers/driver-profile-form";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export default async function AdminUsuarioDetailPage({ params }: Props) {
             <Row label="CPF" value={user.cpfMasked} />
             <Row label="Matrícula" value={user.registrationNumber} />
             <Row label="Telefone" value={user.phone} />
+            <Row label="Órgão" value={user.agency ?? "—"} />
             <Row label="Setor" value={user.sector} />
             <Row label="Lotação" value={user.department} />
             <Row label="Papel" value={USER_ROLE_LABEL[user.role]} />
@@ -61,6 +63,16 @@ export default async function AdminUsuarioDetailPage({ params }: Props) {
             currentRole={user.role}
             canChangeRole={canChangeRole}
             isSelf={isSelf}
+          />
+        </section>
+
+        <section className="rounded-card border border-gray-200 bg-white p-5 shadow-card lg:col-span-2">
+          <h2 className="mb-4 text-sm font-semibold text-gray-700">Condutor</h2>
+          <DriverProfileForm
+            userId={user.id}
+            isDriver={user.isDriver}
+            driverLicenseCategory={user.driverLicenseCategory}
+            driverLicenseExpiresAt={user.driverLicenseExpiresAt}
           />
         </section>
       </div>

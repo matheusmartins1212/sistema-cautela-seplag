@@ -48,8 +48,8 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-institutional-900">Cautelas</h1>
-        <p className="mt-1 text-sm text-gray-600">{total} cautela(s).</p>
+        <h1 className="text-2xl font-bold text-institutional-900">Viagens</h1>
+        <p className="mt-1 text-sm text-gray-600">{total} viagem(ns).</p>
       </div>
 
       <form className="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 shadow-card sm:grid-cols-4">
@@ -59,7 +59,7 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
             type="text"
             name="search"
             defaultValue={cleaned.search ?? ""}
-            placeholder="código, solicitante, placa, modelo…"
+            placeholder="código, solicitante, condutor, órgão, placa…"
             className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
           />
         </label>
@@ -95,11 +95,12 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
       </form>
 
       <div className="overflow-x-auto rounded-card border border-gray-200 bg-white shadow-card">
-        <table className="w-full min-w-[46rem] text-sm">
+        <table className="w-full min-w-[56rem] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-600">
             <tr>
               <th className="px-4 py-3">Código</th>
               <th className="px-4 py-3">Solicitante</th>
+              <th className="px-4 py-3">Condutor</th>
               <th className="px-4 py-3">Veículo</th>
               <th className="px-4 py-3">Período</th>
               <th className="px-4 py-3">Status</th>
@@ -109,8 +110,8 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
           <tbody className="divide-y divide-gray-100">
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
-                  Nenhuma cautela encontrada com os filtros atuais.
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-500">
+                  Nenhuma viagem encontrada com os filtros atuais.
                 </td>
               </tr>
             )}
@@ -118,6 +119,7 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
               const cau = toPublicCaution(c, {
                 includeRequest: true,
                 includeUser: true,
+                includeDriver: true,
                 includeVehicle: true,
               });
               return (
@@ -128,8 +130,19 @@ export default async function AdminCautelasPage({ searchParams }: Props) {
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{cau.user?.fullName ?? "—"}</div>
                     <div className="text-xs text-gray-500">
-                      Mat. {cau.user?.registrationNumber ?? "—"}
+                      {cau.request?.requestingAgency ??
+                        `Mat. ${cau.user?.registrationNumber ?? "—"}`}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {cau.driver ? (
+                      <>
+                        <div className="font-medium text-gray-900">{cau.driver.fullName}</div>
+                        <div className="text-xs text-gray-500">{cau.driver.phone}</div>
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-500">Solicitante (cautela)</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {cau.vehicle ? (

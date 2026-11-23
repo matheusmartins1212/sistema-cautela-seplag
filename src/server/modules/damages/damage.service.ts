@@ -11,6 +11,7 @@ import { recordAudit } from "@/server/lib/audit";
 import type { RequestContext } from "@/server/lib/request-context";
 import type { SessionUser } from "@/server/modules/auth/session";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
+import { responsibleUserId } from "@/server/modules/cautions/responsible";
 import type { CreateDamageInput, ListDamagesQuery, UpdateDamageInput } from "./damage.schemas";
 
 type DamageWithVehicle = DamageReport & { vehicle?: Vehicle };
@@ -128,8 +129,8 @@ export async function updateDamage(
     context,
   });
 
-  // Ao colocar a avaria EM_ANALISE, notifica o dono da cautela relacionada
-  // (best effort; só quando a avaria está vinculada a uma cautela).
+  // Ao colocar a avaria EM_ANALISE, notifica o condutor da viagem relacionada
+  // (best effort; só quando a avaria está vinculada a uma viagem).
   if (
     updated.status === DamageStatus.EM_ANALISE &&
     current.status !== DamageStatus.EM_ANALISE &&
@@ -137,14 +138,14 @@ export async function updateDamage(
   ) {
     const caution = await prisma.caution.findUnique({
       where: { id: updated.cautionId },
-      select: { userId: true },
+      select: { userId: true, driverId: true },
     });
     if (caution) {
       await createNotification({
-        userId: caution.userId,
+        userId: responsibleUserId(caution),
         type: "DAMAGE_UNDER_REVIEW",
         title: "Avaria em análise",
-        message: "Uma avaria relacionada à sua cautela está em análise pela administração.",
+        message: "Uma avaria registrada na sua viagem está em análise pela central.",
         relatedEntityType: "Caution",
         relatedEntityId: updated.cautionId,
       });

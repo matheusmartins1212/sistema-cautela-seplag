@@ -2,7 +2,7 @@
  * Layout institucional base para e-mails (cabeçalho azul escuro, card central),
  * compatível com Gmail/Outlook (CSS inline, tabelas). Sem dependências externas.
  */
-const BRAND = "Sistema de Cautela de Veículos";
+const BRAND = "Central de Veículos Compartilhados";
 const SUBBRAND = "SEPLAG / SATGF";
 
 export interface LayoutParts {

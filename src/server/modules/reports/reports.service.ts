@@ -24,6 +24,16 @@ export interface SectorRow {
   count: number;
 }
 
+export interface AgencyRow {
+  agency: string;
+  count: number;
+}
+
+export interface DriverRow {
+  driver: string;
+  count: number;
+}
+
 export interface DamageByVehicleRow {
   vehicleId: string;
   plate: string;
@@ -41,11 +51,20 @@ function rangeWhere(range: DateRange): Prisma.DateTimeFilter | undefined {
 export interface CautionStats {
   vehicleUsage: VehicleUsageRow[];
   bySector: SectorRow[];
+  byAgency: AgencyRow[];
+  byDriver: DriverRow[];
+}
+
+const NO_AGENCY = "Sem órgão informado";
+const NO_DRIVER = "Solicitante (cautela)";
+
+function sortedCounts(map: Map<string, number>): [string, number][] {
+  return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
 /**
- * Uma única leitura das cautelas do período alimenta dois relatórios:
- * uso por veículo (top de utilização) e cautelas por setor/lotação.
+ * Uma única leitura das viagens do período alimenta os relatórios: uso por
+ * veículo, por setor/lotação, por órgão solicitante e por condutor.
  */
 export async function getCautionStats(range: DateRange): Promise<CautionStats> {
   const planned = rangeWhere(range);
@@ -57,12 +76,16 @@ export async function getCautionStats(range: DateRange): Promise<CautionStats> {
     select: {
       vehicleId: true,
       vehicle: { select: { brand: true, model: true, plate: true } },
-      user: { select: { department: true } },
+      user: { select: { department: true, agency: true } },
+      driver: { select: { fullName: true } },
+      request: { select: { requestingAgency: true } },
     },
   });
 
   const usage = new Map<string, VehicleUsageRow>();
   const sectors = new Map<string, number>();
+  const agencies = new Map<string, number>();
+  const drivers = new Map<string, number>();
   for (const c of cautions) {
     const u = usage.get(c.vehicleId);
     if (u) u.count += 1;
@@ -76,13 +99,19 @@ export async function getCautionStats(range: DateRange): Promise<CautionStats> {
 
     const dep = c.user.department || "—";
     sectors.set(dep, (sectors.get(dep) ?? 0) + 1);
+
+    const agency = c.request.requestingAgency ?? c.user.agency ?? NO_AGENCY;
+    agencies.set(agency, (agencies.get(agency) ?? 0) + 1);
+
+    const driver = c.driver?.fullName ?? NO_DRIVER;
+    drivers.set(driver, (drivers.get(driver) ?? 0) + 1);
   }
 
   return {
     vehicleUsage: [...usage.values()].sort((a, b) => b.count - a.count),
-    bySector: [...sectors.entries()]
-      .map(([department, count]) => ({ department, count }))
-      .sort((a, b) => b.count - a.count),
+    bySector: sortedCounts(sectors).map(([department, count]) => ({ department, count })),
+    byAgency: sortedCounts(agencies).map(([agency, count]) => ({ agency, count })),
+    byDriver: sortedCounts(drivers).map(([driver, count]) => ({ driver, count })),
   };
 }
 

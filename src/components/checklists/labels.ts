@@ -8,8 +8,8 @@ import type {
 } from "@prisma/client";
 
 export const CHECKLIST_TYPE_LABEL: Record<ChecklistType, string> = {
-  RETIRADA: "Retirada",
-  DEVOLUCAO: "Devolução",
+  RETIRADA: "Saída",
+  DEVOLUCAO: "Retorno",
 };
 
 export const CHECKLIST_STATUS_LABEL: Record<ChecklistStatus, string> = {

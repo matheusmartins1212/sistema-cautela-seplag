@@ -83,8 +83,8 @@ export default async function VeiculoDetalhePage({ params }: Props) {
           Status administrativo
         </h2>
         <p className="mb-4 text-sm text-gray-600">
-          Os estados de ciclo (reservado, em uso, aguardando devolução) mudam sozinhos conforme as
-          cautelas avançam. Aqui você só bloqueia, coloca em manutenção, inativa ou dá baixa.
+          Os estados de ciclo (reservado, em uso, aguardando retorno) mudam sozinhos conforme as
+          viagens avançam. Aqui você só bloqueia, coloca em manutenção, inativa ou dá baixa.
         </p>
         <VehicleStatusActions vehicleId={vehicle.id} currentStatus={vehicle.currentStatus} />
       </section>
@@ -92,7 +92,7 @@ export default async function VeiculoDetalhePage({ params }: Props) {
       <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Cautelas deste veículo
+            Viagens deste veículo
           </h2>
           {cautions.length > 0 && (
             <Link
@@ -104,7 +104,7 @@ export default async function VeiculoDetalhePage({ params }: Props) {
           )}
         </div>
         {cautions.length === 0 ? (
-          <p className="text-sm text-gray-500">Este veículo ainda não teve cautelas.</p>
+          <p className="text-sm text-gray-500">Este veículo ainda não teve viagens.</p>
         ) : (
           <ul className="divide-y divide-gray-100">
             {cautions.map((c) => (

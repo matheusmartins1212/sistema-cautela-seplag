@@ -33,21 +33,27 @@ export function activeNavHref(pathname: string, items: readonly NavItem[]): stri
   return best?.href ?? null;
 }
 
-/** Navegação da área do servidor (perfil de usuário). */
+/**
+ * Navegação da área do usuário. Todo servidor pode pedir veículo, com ou sem
+ * condutor. "Minhas viagens" reúne as viagens em que a pessoa está com o
+ * veículo: as que ela mesma dirige e as que foi escalada como condutora.
+ */
 export const USER_NAV: NavItem[] = [
   { href: "/painel", label: "Início", exact: true },
   { href: "/solicitacoes/nova", label: "Solicitar veículo", exact: true },
   { href: "/solicitacoes", label: "Minhas solicitações" },
-  { href: "/cautelas", label: "Minhas cautelas" },
+  { href: "/cautelas", label: "Minhas viagens" },
 ];
 
-/** Navegação da área administrativa. */
+/** Navegação da área administrativa (central). */
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Painel", exact: true },
   { href: "/admin/calendario", label: "Calendário" },
   { href: "/admin/solicitacoes", label: "Solicitações" },
-  { href: "/admin/cautelas", label: "Cautelas", alsoMatches: ["/admin/checklists"] },
+  { href: "/admin/cautelas", label: "Viagens", alsoMatches: ["/admin/checklists"] },
   { href: "/admin/veiculos", label: "Veículos" },
+  { href: "/admin/condutores", label: "Condutores" },
+  { href: "/admin/orgaos", label: "Órgãos" },
   { href: "/admin/avarias", label: "Avarias" },
   { href: "/admin/usuarios", label: "Usuários" },
   { href: "/admin/relatorios", label: "Relatórios" },

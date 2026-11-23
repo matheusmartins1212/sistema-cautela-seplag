@@ -14,6 +14,15 @@ vi.mock("@/server/db/prisma", () => {
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    user: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
+    agency: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
     caution: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -62,6 +71,10 @@ const baseUser = {
   status: "ACTIVE" as const,
   passwordHash: "h",
   emailVerifiedAt: new Date(),
+  agency: null,
+  isDriver: false,
+  driverLicenseCategory: null,
+  driverLicenseExpiresAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   deletedAt: null,
@@ -86,8 +99,13 @@ const baseRequest = {
   shift: "MATUTINO" as const,
   withdrawalTime: "08:00",
   returnTime: "12:00",
+  origin: "SEPLAG - Centro Político Administrativo",
   destination: "Rondonópolis",
   reason: "Operação Energisa",
+  passengerCount: 3,
+  passengerNames: null,
+  contactPhone: "65999990000",
+  requestingAgency: "SEPLAG",
   termNumber: null,
   status: "PENDENTE_ANALISE" as const,
   adminId: null,
@@ -101,13 +119,27 @@ const baseRequest = {
 const baseInput = {
   withdrawalDate: "2026-06-15",
   returnDate: "2026-06-15",
-  shift: "MATUTINO" as const,
   withdrawalTime: "08:00",
   returnTime: "12:00",
+  origin: "SEPLAG - Centro Político Administrativo",
   destination: "Rondonópolis",
   reason: "Operação Energisa",
+  passengerCount: 3,
   termNumber: null,
 };
+
+const baseDriver = {
+  ...baseUser,
+  id: "d1",
+  fullName: "Carlos Condutor",
+  email: "carlos@seplag.mt.gov.br",
+  phone: "65988887777",
+  isDriver: true,
+  driverLicenseCategory: "D",
+  driverLicenseExpiresAt: null,
+};
+
+const approveInput = { vehicleId: "v1", driverId: "d1" };
 
 const baseVehicle = {
   id: "v1",
@@ -133,6 +165,10 @@ beforeEach(() => {
 });
 
 describe("createRequest", () => {
+  beforeEach(() => {
+    (prisma.agency.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  });
+
   it("cria com publicCode SOL-* e envia e-mail de recebimento", async () => {
     (prisma.vehicleRequest.create as ReturnType<typeof vi.fn>).mockResolvedValue(baseRequest);
 
@@ -160,6 +196,66 @@ describe("createRequest", () => {
     const result = await createRequest(baseInput, baseActor);
     expect(result.id).toBe("r1");
     expect(prisma.vehicleRequest.create).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("createRequest (dados do transporte)", () => {
+  beforeEach(() => {
+    (prisma.vehicleRequest.create as ReturnType<typeof vi.fn>).mockResolvedValue(baseRequest);
+    (prisma.agency.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  });
+
+  function createdData() {
+    return (prisma.vehicleRequest.create as ReturnType<typeof vi.fn>).mock.calls[0]![0].data;
+  }
+
+  it("grava saída, passageiros e deduz o turno quando não informado", async () => {
+    await createRequest({ ...baseInput, withdrawalTime: "13:00", returnTime: "17:00" }, baseActor);
+    const data = createdData();
+    expect(data.origin).toBe(baseInput.origin);
+    expect(data.passengerCount).toBe(3);
+    expect(data.shift).toBe("VESPERTINO");
+    // Sem telefone informado, usa o do cadastro.
+    expect(data.contactPhone).toBe(baseUser.phone);
+  });
+
+  it("usa o órgão do cadastro do solicitante, ignorando o informado", async () => {
+    const actor = { ...baseActor, user: { ...baseUser, agency: "SEPLAG" } };
+    await createRequest({ ...baseInput, agency: "OUTRO ÓRGÃO" }, actor);
+    expect(createdData().requestingAgency).toBe("SEPLAG");
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("conta antiga sem órgão: valida no catálogo e grava na conta", async () => {
+    (prisma.agency.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "a1" });
+    await createRequest({ ...baseInput, agency: "SEFAZ" }, baseActor);
+    expect(createdData().requestingAgency).toBe("SEFAZ");
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { agency: "SEFAZ" },
+    });
+  });
+
+  it("rejeita órgão fora do catálogo", async () => {
+    (prisma.agency.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    await expect(
+      createRequest({ ...baseInput, agency: "INVENTADO" }, baseActor),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(prisma.vehicleRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("exige órgão quando a central já tem órgãos cadastrados", async () => {
+    (prisma.agency.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "a1", name: "SEPLAG" },
+    ]);
+    await expect(createRequest(baseInput, baseActor)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+  });
+
+  it("com catálogo vazio, aceita sem órgão", async () => {
+    await createRequest(baseInput, baseActor);
+    expect(createdData().requestingAgency).toBeNull();
   });
 });
 
@@ -226,6 +322,7 @@ describe("approveRequest", () => {
       user: baseUser,
     });
     (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseVehicle);
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseDriver);
     (prisma.caution.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prisma.caution.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "c1",
@@ -248,7 +345,7 @@ describe("approveRequest", () => {
       status: "APROVADA",
       user: baseUser,
     });
-    await expect(approveRequest("r1", { vehicleId: "v1" }, baseAdminActor)).rejects.toMatchObject({
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
@@ -258,7 +355,7 @@ describe("approveRequest", () => {
       ...baseVehicle,
       active: false,
     });
-    await expect(approveRequest("r1", { vehicleId: "v1" }, baseAdminActor)).rejects.toMatchObject({
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
@@ -270,9 +367,9 @@ describe("approveRequest", () => {
         ...baseVehicle,
         currentStatus: status,
       });
-      await expect(approveRequest("r1", { vehicleId: "v1" }, baseAdminActor)).rejects.toMatchObject(
-        { code: "CONFLICT" },
-      );
+      await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
+        code: "CONFLICT",
+      });
     },
   );
 
@@ -281,7 +378,7 @@ describe("approveRequest", () => {
       ...baseVehicle,
       currentStatus: "EM_USO",
     });
-    const result = await approveRequest("r1", { vehicleId: "v1" }, baseAdminActor);
+    const result = await approveRequest("r1", approveInput, baseAdminActor);
     expect(result.caution.publicCode).toMatch(/^CTL-/);
     expect(prisma.vehicle.update).not.toHaveBeenCalled();
     expect(result.vehicle.currentStatus).toBe("EM_USO");
@@ -295,7 +392,7 @@ describe("approveRequest", () => {
         plannedReturnAt: new Date("2026-06-15T13:00:00.000Z"),
       },
     ]);
-    await expect(approveRequest("r1", { vehicleId: "v1" }, baseAdminActor)).rejects.toMatchObject({
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
       code: "CONFLICT",
     });
     expect(prisma.caution.create).not.toHaveBeenCalled();
@@ -304,7 +401,7 @@ describe("approveRequest", () => {
   it("sucesso: cria caution com CTL-*, reserva veículo, audita, notifica e envia e-mail", async () => {
     const result = await approveRequest(
       "r1",
-      { vehicleId: "v1", adminNotes: "ok" },
+      { ...approveInput, adminNotes: "ok" },
       baseAdminActor,
     );
 
@@ -314,10 +411,86 @@ describe("approveRequest", () => {
       expect.objectContaining({ action: "REQUEST_APPROVED" }),
     );
     expect(createNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "REQUEST_APPROVED" }),
+      expect.objectContaining({ type: "REQUEST_APPROVED", userId: "u1" }),
     );
     await new Promise((r) => setImmediate(r));
     expect(sendTransactionalEmail).toHaveBeenCalled();
+  });
+
+  it("escala o condutor na viagem e avisa o condutor", async () => {
+    const result = await approveRequest("r1", approveInput, baseAdminActor);
+
+    expect(prisma.caution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ driverId: "d1", userId: "u1" }),
+      }),
+    );
+    expect(result.driver.id).toBe("d1");
+    expect(createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "TRIP_ASSIGNED", userId: "d1" }),
+    );
+    await new Promise((r) => setImmediate(r));
+    const templates = (sendTransactionalEmail as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0].template,
+    );
+    expect(templates).toEqual(expect.arrayContaining(["REQUEST_APPROVED", "TRIP_ASSIGNED"]));
+  });
+
+  it("rejeita usuário que não é condutor", async () => {
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseDriver,
+      isDriver: false,
+    });
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(prisma.caution.create).not.toHaveBeenCalled();
+  });
+
+  it("rejeita condutor bloqueado", async () => {
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseDriver,
+      status: "BLOCKED",
+    });
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("rejeita condutor com CNH vencendo antes do fim da viagem", async () => {
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseDriver,
+      driverLicenseExpiresAt: new Date("2026-06-14T00:00:00.000Z"),
+    });
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("aceita CNH que vence no último dia da viagem", async () => {
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseDriver,
+      driverLicenseExpiresAt: new Date("2026-06-15T00:00:00.000Z"),
+    });
+    const result = await approveRequest("r1", approveInput, baseAdminActor);
+    expect(result.caution.publicCode).toMatch(/^CTL-/);
+  });
+
+  it("rejeita condutor já escalado no mesmo período", async () => {
+    (prisma.caution.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // veículo livre
+      .mockResolvedValueOnce([
+        {
+          publicCode: "CTL-DO-CONDUTOR",
+          plannedWithdrawalAt: new Date("2026-06-15T10:00:00.000Z"),
+          plannedReturnAt: new Date("2026-06-15T15:00:00.000Z"),
+        },
+      ]);
+    await expect(approveRequest("r1", approveInput, baseAdminActor)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("CTL-DO-CONDUTOR"),
+    });
+    expect(prisma.caution.create).not.toHaveBeenCalled();
   });
 });
 

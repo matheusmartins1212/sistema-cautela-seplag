@@ -1,6 +1,11 @@
 // =============================================================================
-// Sistema de Cautela de Veículos — SEPLAG / SATGF
+// Central de Veículos Compartilhados — SEPLAG / SATGF
 // Schema Prisma — fonte única do modelo de dados.
+//
+// Fluxo da central: o órgão solicita o transporte (VehicleRequest), a central
+// aprova e aloca veículo + condutor, gerando a viagem (model `Caution`, nome
+// mantido por compatibilidade com o banco). O condutor preenche os checklists
+// de saída e retorno.
 //
 // Princípios:
 // - Constraints reais no banco (unique, FKs, índices).
@@ -176,6 +181,7 @@ enum EmailTemplate {
   RETURN_REMINDER
   OVERDUE_ALERT
   CHECKLIST_PENDING
+  TRIP_ASSIGNED
 }
 
 enum NotificationType {
@@ -187,6 +193,7 @@ enum NotificationType {
   RETURN_OVERDUE
   DAMAGE_UNDER_REVIEW
   GENERAL
+  TRIP_ASSIGNED
 }
 
 enum AuditAction {
@@ -219,26 +226,35 @@ enum AuditAction {
   USER_DEACTIVATED
   USER_ROLE_CHANGED
   UNAUTHORIZED_ACCESS_ATTEMPT
+  USER_DRIVER_UPDATED
+  AGENCY_CREATED
+  AGENCY_UPDATED
 }
 
 // =============================== MODELS ======================================
 
 model User {
-  id                 String     @id @default(cuid())
-  fullName           String
-  cpf                String     @unique // normalizado (apenas dígitos)
-  registrationNumber String     @unique // matrícula funcional
-  email              String     @unique // sempre lowercase
-  phone              String
-  sector             String
-  department         String
-  role               UserRole   @default(USER)
-  status             UserStatus @default(PENDING_EMAIL_VERIFICATION)
-  passwordHash       String
-  emailVerifiedAt    DateTime?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  deletedAt          DateTime?
+  id                     String     @id @default(cuid())
+  fullName               String
+  cpf                    String     @unique // normalizado (apenas dígitos)
+  registrationNumber     String     @unique // matrícula funcional
+  email                  String     @unique // sempre lowercase
+  phone                  String
+  sector                 String
+  department             String
+  // Órgão de origem (texto do catálogo `Agency`). Nulo em contas anteriores à central.
+  agency                 String?
+  role                   UserRole   @default(USER)
+  status                 UserStatus @default(PENDING_EMAIL_VERIFICATION)
+  passwordHash           String
+  emailVerifiedAt        DateTime?
+  // Perfil de condutor da central (habilitado pelo administrador).
+  isDriver               Boolean    @default(false)
+  driverLicenseCategory  String? // categoria da CNH (ex.: B, D, AB)
+  driverLicenseExpiresAt DateTime?  @db.Date
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  deletedAt              DateTime?
 
   sessions                Session[]
   emailVerificationTokens EmailVerificationToken[]
@@ -247,6 +263,7 @@ model User {
   decidedRequests         VehicleRequest[]         @relation("RequestAdmin")
   cautions                Caution[]                @relation("CautionUser")
   approvedCautions        Caution[]                @relation("CautionApprover")
+  drivenCautions          Caution[]                @relation("CautionDriver")
   checklists              Checklist[]              @relation("ChecklistUser")
   reviewedChecklists      Checklist[]              @relation("ChecklistReviewer")
   uploadedPhotos          ChecklistPhoto[]
@@ -257,6 +274,7 @@ model User {
 
   @@index([role])
   @@index([status])
+  @@index([isDriver])
   @@map("users")
 }
 
@@ -335,24 +353,30 @@ model Vehicle {
 }
 
 model VehicleRequest {
-  id              String        @id @default(cuid())
-  publicCode      String        @unique
-  userId          String
-  withdrawalDate  DateTime      @db.Date
-  returnDate      DateTime      @db.Date
-  shift           Shift
-  withdrawalTime  String // HH:mm
-  returnTime      String // HH:mm
-  destination     String
-  reason          String
-  termNumber      String?
-  status          RequestStatus @default(PENDENTE_ANALISE)
-  adminId         String?
-  rejectionReason String?
-  adminNotes      String?
-  decidedAt       DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id               String        @id @default(cuid())
+  publicCode       String        @unique
+  userId           String
+  withdrawalDate   DateTime      @db.Date
+  returnDate       DateTime      @db.Date
+  shift            Shift
+  withdrawalTime   String // HH:mm
+  returnTime       String // HH:mm
+  destination      String
+  reason           String // finalidade da viagem
+  termNumber       String?
+  // Dados do transporte solicitado à central. Nulos em solicitações antigas.
+  requestingAgency String? // órgão solicitante (cópia do órgão do usuário no envio)
+  origin           String? // local de saída / embarque
+  passengerCount   Int?
+  passengerNames   String?
+  contactPhone     String? // contato do responsável no dia da viagem
+  status           RequestStatus @default(PENDENTE_ANALISE)
+  adminId          String?
+  rejectionReason  String?
+  adminNotes       String?
+  decidedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   user    User     @relation("RequestUser", fields: [userId], references: [id])
   admin   User?    @relation("RequestAdmin", fields: [adminId], references: [id])
@@ -361,30 +385,36 @@ model VehicleRequest {
   @@index([userId])
   @@index([status])
   @@index([withdrawalDate])
+  @@index([requestingAgency])
   @@map("vehicle_requests")
 }
 
+// Viagem da central. `userId` é o solicitante; `driverId` é o condutor
+// acionado, responsável pelos checklists. Viagens antigas (cautela) não têm
+// condutor e seguem com o próprio solicitante como responsável.
 model Caution {
-  id                  String        @id @default(cuid())
-  publicCode          String        @unique
-  requestId           String        @unique
-  userId              String
-  vehicleId           String
-  status              CautionStatus @default(AGUARDANDO_RETIRADA)
-  approvedByAdminId   String?
-  plannedWithdrawalAt DateTime
-  plannedReturnAt     DateTime
-  actualWithdrawalAt  DateTime?
-  actualReturnAt      DateTime?
-  finalNotes          String?
+  id                       String        @id @default(cuid())
+  publicCode               String        @unique
+  requestId                String        @unique
+  userId                   String
+  driverId                 String?
+  vehicleId                String
+  status                   CautionStatus @default(AGUARDANDO_RETIRADA)
+  approvedByAdminId        String?
+  plannedWithdrawalAt      DateTime
+  plannedReturnAt          DateTime
+  actualWithdrawalAt       DateTime?
+  actualReturnAt           DateTime?
+  finalNotes               String?
   // Controle anti-duplicidade dos lembretes agendados (job /api/cron).
   withdrawalReminderSentAt DateTime?
   returnReminderSentAt     DateTime?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
 
   request       VehicleRequest @relation(fields: [requestId], references: [id])
   user          User           @relation("CautionUser", fields: [userId], references: [id])
+  driver        User?          @relation("CautionDriver", fields: [driverId], references: [id])
   vehicle       Vehicle        @relation(fields: [vehicleId], references: [id])
   approvedBy    User?          @relation("CautionApprover", fields: [approvedByAdminId], references: [id])
   // Os checklists de RETIRADA e DEVOLUCAO são distinguidos por `Checklist.type`.
@@ -392,6 +422,7 @@ model Caution {
   damageReports DamageReport[]
 
   @@index([userId])
+  @@index([driverId])
   @@index([vehicleId])
   @@index([status])
   @@map("cautions")
@@ -589,6 +620,18 @@ model OrganizationalUnit {
   updatedAt DateTime @updatedAt
 
   @@map("organizational_units")
+}
+
+// Órgãos atendidos pela central (gerenciados pelo administrador).
+model Agency {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("agencies")
 }
 
 model ParkingLocation {

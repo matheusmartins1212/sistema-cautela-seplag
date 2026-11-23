@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import {
   getRequestById,
+  listDriverOptionsForRequest,
   listVehicleOptionsForRequest,
 } from "@/server/modules/requests/request.service";
 import { toPublicRequest } from "@/server/modules/requests/request.dto";
@@ -10,16 +11,11 @@ import { Errors } from "@/server/lib/errors";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import { RequestStatusBadge } from "@/components/requests/request-status-badge";
 import { AdminDecisionPanel } from "@/components/requests/admin-decision-panel";
-import { SHIFT_LABEL } from "@/components/requests/labels";
+import { TransportDetails } from "@/components/requests/transport-details";
 import { formatPlate } from "@/shared/validation/plate";
 
 interface Props {
   params: Promise<{ id: string }>;
-}
-
-function formatDateBr(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
 }
 
 export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
@@ -43,20 +39,30 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
   }
   const r = toPublicRequest(reqRaw, { includeUser: true, includeCaution: true });
 
-  // Opções de veículo só interessam enquanto a solicitação está em análise.
-  const availableVehicles =
-    r.status === "PENDENTE_ANALISE"
-      ? (await listVehicleOptionsForRequest(r.id)).map((v) => ({
-          id: v.id,
-          brand: v.brand,
-          model: v.model,
-          plate: v.plate,
-          plateFormatted: formatPlate(v.plate),
-          category: v.category,
-          currentStatus: v.currentStatus,
-          conflictCode: v.conflictCode,
-        }))
-      : [];
+  // Opções de veículo e condutor só interessam enquanto a solicitação está em análise.
+  const pending = r.status === "PENDENTE_ANALISE";
+  const availableDrivers = pending
+    ? (await listDriverOptionsForRequest(r.id)).map((d) => ({
+        id: d.id,
+        fullName: d.fullName,
+        phone: d.phone,
+        driverLicenseCategory: d.driverLicenseCategory,
+        conflictCode: d.conflictCode,
+        licenseExpired: d.licenseExpired,
+      }))
+    : [];
+  const availableVehicles = pending
+    ? (await listVehicleOptionsForRequest(r.id)).map((v) => ({
+        id: v.id,
+        brand: v.brand,
+        model: v.model,
+        plate: v.plate,
+        plateFormatted: formatPlate(v.plate),
+        category: v.category,
+        currentStatus: v.currentStatus,
+        conflictCode: v.conflictCode,
+      }))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -79,6 +85,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
           <Row label="Matrícula" value={r.user?.registrationNumber ?? "—"} />
           <Row label="E-mail" value={r.user?.email ?? "—"} />
           <Row label="Telefone" value={r.user?.phone ?? "—"} />
+          <Row label="Órgão" value={r.user?.agency ?? "—"} />
           <Row label="Setor" value={r.user?.sector ?? "—"} />
           <Row label="Lotação" value={r.user?.department ?? "—"} />
         </dl>
@@ -86,29 +93,26 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
 
       <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Dados da solicitação
+          Transporte solicitado
         </h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Data de retirada" value={formatDateBr(r.withdrawalDate)} />
-          <Row label="Horário de retirada" value={r.withdrawalTime} />
-          <Row label="Data de devolução" value={formatDateBr(r.returnDate)} />
-          <Row label="Horário de devolução" value={r.returnTime} />
-          <Row label="Turno" value={SHIFT_LABEL[r.shift]} />
-          <Row label="Destino" value={r.destination} />
-          <Row label="Motivo" value={r.reason} />
-          {r.termNumber && <Row label="Número do termo" value={r.termNumber} />}
-        </dl>
+        <TransportDetails r={r} />
       </section>
 
       {r.status === "APROVADA" && r.caution?.vehicle && (
         <section className="rounded-card border border-success/30 bg-success/5 p-6 shadow-card">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-success">
-            Cautela vinculada
+            Viagem vinculada
           </h2>
           <p className="text-sm text-gray-800">
             <span className="font-mono font-semibold">{r.caution.publicCode}</span> ·{" "}
             {r.caution.vehicle.brand} {r.caution.vehicle.model} —{" "}
             <span className="font-mono">{r.caution.vehicle.plateFormatted}</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-800">
+            Condutor:{" "}
+            {r.caution.driver
+              ? `${r.caution.driver.fullName} · ${r.caution.driver.phone}`
+              : "o próprio solicitante (cautela)"}
           </p>
           {r.adminNotes && <p className="mt-2 text-xs text-gray-600">Observação: {r.adminNotes}</p>}
           <div className="mt-3">
@@ -116,7 +120,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
               href={`/admin/cautelas/${r.caution.id}`}
               className="text-sm font-medium text-success hover:underline"
             >
-              Gerenciar cautela →
+              Gerenciar viagem →
             </Link>
           </div>
         </section>
@@ -134,7 +138,12 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">
             Decisão administrativa
           </h2>
-          <AdminDecisionPanel requestId={r.id} availableVehicles={availableVehicles} />
+          <AdminDecisionPanel
+            requestId={r.id}
+            availableVehicles={availableVehicles}
+            availableDrivers={availableDrivers}
+            passengerCount={r.passengerCount}
+          />
         </section>
       )}
     </div>

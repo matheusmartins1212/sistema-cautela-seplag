@@ -1,8 +1,9 @@
 /**
  * Normalização e validação de e-mail institucional.
  *
- * Regra (seção 5.2 da especificação): apenas e-mails cujo domínio seja
- * EXATAMENTE o domínio institucional permitido podem concluir cadastro.
+ * Regra (seção 5.2 da especificação): apenas e-mails de domínio institucional
+ * permitido podem concluir cadastro. A central atende vários órgãos, então a
+ * configuração aceita uma lista (ex.: `seplag.mt.gov.br,*.mt.gov.br`).
  * Deve rejeitar spoofings como:
  *   - usuario@seplag.mt.gov.br.fake.com
  *   - usuario@seplag.mt.gov.br@gmail.com
@@ -57,12 +58,43 @@ export function getEmailDomain(value: string): string | null {
 }
 
 /**
- * Verifica se o e-mail pertence EXATAMENTE ao domínio institucional permitido.
- * A comparação é por igualdade total do domínio (não `endsWith`), o que barra
- * `@seplag.mt.gov.br.fake.com`.
+ * Lista de domínios aceitos, a partir da configuração (separados por vírgula).
+ * Cada item é um domínio exato (`seplag.mt.gov.br`) ou um curinga de
+ * subdomínios (`*.mt.gov.br`), usado quando a central atende vários órgãos.
  */
-export function isAllowedInstitutionalEmail(value: string, allowedDomain: string): boolean {
+export function parseAllowedDomains(config: string): string[] {
+  return config
+    .split(",")
+    .map((d) => normalizeEmail(d))
+    .filter((d) => d.length > 0);
+}
+
+/** Texto amigável dos domínios aceitos, para mensagens de erro. */
+export function describeAllowedDomains(config: string): string {
+  return parseAllowedDomains(config)
+    .map((d) => `@${d}`)
+    .join(", ");
+}
+
+function matchesDomain(domain: string, rule: string): boolean {
+  if (rule.startsWith("*.")) {
+    // Curinga exige um rótulo inteiro antes do sufixo: `sefaz.mt.gov.br` casa
+    // com `*.mt.gov.br`, mas `evilmt.gov.br` e `x.mt.gov.br.fake.com` não.
+    const suffix = rule.slice(1); // ".mt.gov.br"
+    return domain.length > suffix.length && domain.endsWith(suffix);
+  }
+  return domain === rule;
+}
+
+/**
+ * Verifica se o e-mail pertence a um dos domínios institucionais permitidos.
+ * Domínios exatos são comparados por igualdade total (não `endsWith`), o que
+ * barra `@seplag.mt.gov.br.fake.com`. Curingas (`*.mt.gov.br`) aceitam apenas
+ * subdomínios reais do sufixo.
+ */
+export function isAllowedInstitutionalEmail(value: string, allowedDomains: string): boolean {
   if (!isValidEmailFormat(value)) return false;
   const domain = getEmailDomain(value);
-  return domain !== null && domain === allowedDomain.trim().toLowerCase();
+  if (domain === null) return false;
+  return parseAllowedDomains(allowedDomains).some((rule) => matchesDomain(domain, rule));
 }

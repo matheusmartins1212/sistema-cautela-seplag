@@ -103,7 +103,7 @@ export default async function AdminUsuariosPage({ searchParams }: Props) {
             <tr>
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Contato</th>
-              <th className="px-4 py-3">Lotação</th>
+              <th className="px-4 py-3">Órgão / lotação</th>
               <th className="px-4 py-3">Papel</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Ações</th>
@@ -126,8 +126,20 @@ export default async function AdminUsuariosPage({ searchParams }: Props) {
                     <div className="text-xs text-gray-500">Mat. {user.registrationNumber}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-700">{user.email}</td>
-                  <td className="px-4 py-3 text-gray-700">{user.department}</td>
-                  <td className="px-4 py-3 text-gray-700">{USER_ROLE_LABEL[user.role]}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {user.agency && <div className="font-medium">{user.agency}</div>}
+                    <div className={user.agency ? "text-xs text-gray-500" : ""}>
+                      {user.department}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {USER_ROLE_LABEL[user.role]}
+                    {user.isDriver && (
+                      <span className="ml-2 rounded-full bg-institutional-50 px-2 py-0.5 text-xs font-medium text-institutional-800">
+                        Condutor
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <UserStatusBadge status={user.status} />
                   </td>

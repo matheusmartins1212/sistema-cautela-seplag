@@ -7,7 +7,7 @@ interface Props {
 }
 
 /**
- * Mostra os atalhos para o checklist apropriado conforme o status da cautela.
+ * Mostra os atalhos para o checklist apropriado conforme o status da viagem.
  * Não-clicáveis quando o status atual não permite a ação.
  */
 export function ChecklistActions({ cautionId, status }: Props) {
@@ -46,7 +46,7 @@ export function ChecklistActions({ cautionId, status }: Props) {
               : "inline-flex h-10 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
           }
         >
-          {retiradaActive ? "Preencher checklist de retirada" : "Ver checklist de retirada"}
+          {retiradaActive ? "Preencher checklist de saída" : "Ver checklist de saída"}
         </Link>
       )}
       {showDevolucao && (
@@ -58,7 +58,7 @@ export function ChecklistActions({ cautionId, status }: Props) {
               : "inline-flex h-10 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
           }
         >
-          {devolucaoActive ? "Preencher checklist de devolução" : "Ver checklist de devolução"}
+          {devolucaoActive ? "Preencher checklist de retorno" : "Ver checklist de retorno"}
         </Link>
       )}
     </div>

@@ -62,8 +62,8 @@ export function VehicleStatusActions({ vehicleId, currentStatus }: Props) {
   if (inWorkflow) {
     return (
       <Alert tone="warning">
-        Este veículo está em ciclo de cautela ({VEHICLE_STATUS_LABEL[currentStatus]}). O status só
-        voltará a ser administrável quando a cautela for finalizada.
+        Este veículo está em viagem ({VEHICLE_STATUS_LABEL[currentStatus]}). O status só voltará a
+        ser administrável quando a viagem for finalizada.
       </Alert>
     );
   }

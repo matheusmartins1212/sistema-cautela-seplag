@@ -15,6 +15,7 @@ import { isAdmin } from "@/server/modules/auth/rbac";
 import type { SessionUser } from "@/server/modules/auth/session";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
 import { syncVehicleStatus } from "./vehicle-sync";
+import { isTripParticipant, responsibleWhere } from "./responsible";
 import type {
   CancelCautionInput,
   ListAdminCautionsQuery,
@@ -24,6 +25,7 @@ import type {
 type CautionWithRelations = Caution & {
   request?: VehicleRequest;
   user?: User;
+  driver?: User | null;
   vehicle?: Vehicle;
 };
 
@@ -57,15 +59,16 @@ export function isVehicleOut(status: CautionStatus): boolean {
 
 function ensureFound<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) {
-    throw Errors.notFound("Cautela não encontrada.");
+    throw Errors.notFound("Viagem não encontrada.");
   }
   return value;
 }
 
 function ensureCanRead(c: Caution, actor: SessionUser): void {
-  if (c.userId !== actor.user.id && !isAdmin(actor.user.role)) {
+  // Solicitante e condutor enxergam a viagem; a central enxerga todas.
+  if (!isTripParticipant(c, actor.user.id) && !isAdmin(actor.user.role)) {
     // Anti-IDOR: mesma mensagem que "não existe".
-    throw Errors.notFound("Cautela não encontrada.");
+    throw Errors.notFound("Viagem não encontrada.");
   }
 }
 
@@ -89,12 +92,13 @@ export interface ListCautionsResult {
   pageSize: number;
 }
 
+/** Viagens que o usuário conduz (ou cautelas antigas em que ele mesmo dirigia). */
 export async function listMyCautions(
   query: ListMyCautionsQuery,
   actor: SessionUser,
 ): Promise<ListCautionsResult> {
   const where: Prisma.CautionWhereInput = {
-    userId: actor.user.id,
+    ...responsibleWhere(actor.user.id),
     ...statusFilter(query.status),
   };
 
@@ -105,7 +109,7 @@ export async function listMyCautions(
       orderBy: [{ plannedWithdrawalAt: "desc" }],
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
-      include: { request: true, vehicle: true },
+      include: { request: true, user: true, vehicle: true },
     }),
   ]);
 
@@ -115,6 +119,7 @@ export async function listMyCautions(
 export async function listAllCautions(query: ListAdminCautionsQuery): Promise<ListCautionsResult> {
   const where: Prisma.CautionWhereInput = { ...statusFilter(query.status) };
   if (query.userId) where.userId = query.userId;
+  if (query.driverId) where.driverId = query.driverId;
   if (query.vehicleId) where.vehicleId = query.vehicleId;
   if (query.search) {
     const term = query.search.trim();
@@ -122,6 +127,8 @@ export async function listAllCautions(query: ListAdminCautionsQuery): Promise<Li
       { publicCode: { contains: term.toUpperCase() } },
       { user: { fullName: { contains: term, mode: "insensitive" } } },
       { user: { registrationNumber: { contains: term } } },
+      { driver: { fullName: { contains: term, mode: "insensitive" } } },
+      { request: { requestingAgency: { contains: term, mode: "insensitive" } } },
       { vehicle: { plate: { contains: term.toUpperCase() } } },
       { vehicle: { model: { contains: term, mode: "insensitive" } } },
     ];
@@ -134,7 +141,7 @@ export async function listAllCautions(query: ListAdminCautionsQuery): Promise<Li
       orderBy: [{ status: "asc" }, { plannedWithdrawalAt: "desc" }],
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
-      include: { request: true, user: true, vehicle: true },
+      include: { request: true, user: true, driver: true, vehicle: true },
     }),
   ]);
 
@@ -147,7 +154,7 @@ export async function getCautionById(
 ): Promise<CautionWithRelations> {
   const caution = await prisma.caution.findUnique({
     where: { id },
-    include: { request: true, user: true, vehicle: true },
+    include: { request: true, user: true, driver: true, vehicle: true },
   });
   ensureFound(caution);
   ensureCanRead(caution as Caution, actor);
@@ -171,7 +178,7 @@ export async function cancelCautionByAdmin(
   ensureFound(caution);
 
   if (!isCautionCancellable(caution!.status)) {
-    throw Errors.conflict("Esta cautela já está encerrada e não pode ser cancelada.");
+    throw Errors.conflict("Esta viagem já está encerrada e não pode ser cancelada.");
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -185,7 +192,7 @@ export async function cancelCautionByAdmin(
       },
     });
     if (count === 0) {
-      throw Errors.conflict("Esta cautela já está encerrada e não pode ser cancelada.");
+      throw Errors.conflict("Esta viagem já está encerrada e não pode ser cancelada.");
     }
 
     // Checklists ainda não enviados perdem o sentido; os enviados ficam como registro.
@@ -221,15 +228,18 @@ export async function cancelCautionByAdmin(
     context,
   });
 
-  // Notifica o dono da cautela sobre o cancelamento (best effort).
-  await createNotification({
-    userId: caution!.userId,
-    type: "GENERAL",
-    title: "Cautela cancelada",
-    message: `Sua cautela ${result.publicCode} foi cancelada pela administração. Motivo: ${input.reason}`,
-    relatedEntityType: "Caution",
-    relatedEntityId: id,
-  });
+  // Avisa solicitante e condutor sobre o cancelamento (best effort).
+  const recipients = new Set([caution!.userId, caution!.driverId].filter(Boolean) as string[]);
+  for (const userId of recipients) {
+    await createNotification({
+      userId,
+      type: "GENERAL",
+      title: "Viagem cancelada",
+      message: `A viagem ${result.publicCode} foi cancelada pela central. Motivo: ${input.reason}`,
+      relatedEntityType: "Caution",
+      relatedEntityId: id,
+    });
+  }
 
   return result;
 }

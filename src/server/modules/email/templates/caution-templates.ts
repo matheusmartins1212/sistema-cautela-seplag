@@ -44,16 +44,16 @@ export function buildWithdrawalReminder(p: WithdrawalReminderParams): EmailMessa
   return build(
     "WITHDRAWAL_REMINDER",
     p.to,
-    `Lembrete de retirada (${p.publicCode}) - Sistema de Cautela de Veículos`,
+    `Lembrete de saída (${p.publicCode}) - Central de Veículos`,
     {
-      heading: "Lembrete: retirada de veículo próxima",
+      heading: "Lembrete: viagem próxima",
       paragraphs: [
         `Olá, ${escapeHtml(p.fullName)}.`,
-        `A retirada do veículo da sua cautela <strong>${escapeHtml(p.publicCode)}</strong> está prevista para <strong>${escapeHtml(p.withdrawalDate)} às ${escapeHtml(p.withdrawalTime)}</strong>.`,
+        `A saída da viagem <strong>${escapeHtml(p.publicCode)}</strong> está prevista para <strong>${escapeHtml(p.withdrawalDate)} às ${escapeHtml(p.withdrawalTime)}</strong>.`,
         `Veículo: <strong>${escapeHtml(p.vehicleLabel)}</strong>.`,
-        "No momento da retirada, preencha o <strong>checklist de retirada</strong> na plataforma.",
+        "Ao pegar o veículo, preencha o <strong>checklist de saída</strong> na plataforma.",
       ],
-      action: { label: "Abrir cautela", url: p.detailsUrl },
+      action: { label: "Abrir viagem", url: p.detailsUrl },
       footerNote: "Caso não vá mais utilizar o veículo, solicite o cancelamento à SATGF/SEPLAG.",
     },
     { type: "Caution", id: p.cautionId },
@@ -75,18 +75,17 @@ export function buildReturnReminder(p: ReturnReminderParams): EmailMessage {
   return build(
     "RETURN_REMINDER",
     p.to,
-    `Lembrete de devolução (${p.publicCode}) - Sistema de Cautela de Veículos`,
+    `Lembrete de retorno (${p.publicCode}) - Central de Veículos`,
     {
-      heading: "Lembrete: devolução de veículo próxima",
+      heading: "Lembrete: retorno do veículo próximo",
       paragraphs: [
         `Olá, ${escapeHtml(p.fullName)}.`,
-        `A devolução do veículo da sua cautela <strong>${escapeHtml(p.publicCode)}</strong> está prevista para <strong>${escapeHtml(p.returnDate)} às ${escapeHtml(p.returnTime)}</strong>.`,
+        `O retorno do veículo da viagem <strong>${escapeHtml(p.publicCode)}</strong> está prevista para <strong>${escapeHtml(p.returnDate)} às ${escapeHtml(p.returnTime)}</strong>.`,
         `Veículo: <strong>${escapeHtml(p.vehicleLabel)}</strong>.`,
-        "Ao devolver, preencha o <strong>checklist de devolução</strong> na plataforma.",
+        "Ao devolver o veículo, preencha o <strong>checklist de retorno</strong> na plataforma.",
       ],
-      action: { label: "Abrir cautela", url: p.detailsUrl },
-      footerNote:
-        "A devolução fora do prazo é registrada e a cautela passa a constar como atrasada.",
+      action: { label: "Abrir viagem", url: p.detailsUrl },
+      footerNote: "O retorno fora do prazo é registrado e a viagem passa a constar como atrasada.",
     },
     { type: "Caution", id: p.cautionId },
   );
@@ -107,17 +106,17 @@ export function buildOverdueAlert(p: OverdueAlertParams): EmailMessage {
   return build(
     "OVERDUE_ALERT",
     p.to,
-    `Devolução ATRASADA (${p.publicCode}) - Sistema de Cautela de Veículos`,
+    `Retorno ATRASADO (${p.publicCode}) - Central de Veículos`,
     {
-      heading: "Devolução atrasada",
+      heading: "Retorno atrasado",
       paragraphs: [
         `Olá, ${escapeHtml(p.fullName)}.`,
-        `A devolução do veículo da cautela <strong>${escapeHtml(p.publicCode)}</strong> estava prevista para <strong>${escapeHtml(p.returnDate)} às ${escapeHtml(p.returnTime)}</strong> e ainda não foi registrada.`,
+        `O retorno do veículo da viagem <strong>${escapeHtml(p.publicCode)}</strong> estava prevista para <strong>${escapeHtml(p.returnDate)} às ${escapeHtml(p.returnTime)}</strong> e ainda não foi registrada.`,
         `Veículo: <strong>${escapeHtml(p.vehicleLabel)}</strong>.`,
-        "Regularize a devolução o quanto antes, preenchendo o checklist de devolução na plataforma.",
+        "Regularize o quanto antes, preenchendo o checklist de retorno na plataforma.",
       ],
-      action: { label: "Regularizar cautela", url: p.detailsUrl },
-      footerNote: "Esta cautela consta como ATRASADA. Em caso de dúvidas, contate a SATGF/SEPLAG.",
+      action: { label: "Regularizar viagem", url: p.detailsUrl },
+      footerNote: "Esta viagem consta como ATRASADA. Em caso de dúvidas, contate a SATGF/SEPLAG.",
     },
     { type: "Caution", id: p.cautionId },
   );

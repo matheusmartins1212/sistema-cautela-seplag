@@ -3,6 +3,7 @@ import {
   approveRequestSchema,
   cancelRequestSchema,
   createRequestSchema,
+  deriveShift,
   listAdminRequestsQuerySchema,
   listMyRequestsQuerySchema,
   rejectRequestSchema,
@@ -14,8 +15,10 @@ const baseInput = {
   shift: "MATUTINO",
   withdrawalTime: "08:00",
   returnTime: "12:00",
+  origin: "SEPLAG - CPA",
   destination: "Rondonópolis - MT",
   reason: "Operação Energisa",
+  passengerCount: 2,
 };
 
 describe("createRequestSchema", () => {
@@ -94,12 +97,72 @@ describe("createRequestSchema", () => {
     const r = createRequestSchema.safeParse({ ...baseInput, reason: "" });
     expect(r.success).toBe(false);
   });
+
+  it("turno é opcional (deduzido no backend)", () => {
+    const { shift: _shift, ...semTurno } = baseInput;
+    expect(createRequestSchema.safeParse(semTurno).success).toBe(true);
+  });
+
+  it("exige local de saída", () => {
+    expect(createRequestSchema.safeParse({ ...baseInput, origin: "" }).success).toBe(false);
+  });
+
+  it("exige ao menos 1 passageiro e aceita número vindo como texto", () => {
+    expect(createRequestSchema.safeParse({ ...baseInput, passengerCount: 0 }).success).toBe(false);
+    expect(createRequestSchema.safeParse({ ...baseInput, passengerCount: 2.5 }).success).toBe(
+      false,
+    );
+    const r = createRequestSchema.parse({ ...baseInput, passengerCount: "4" });
+    expect(r.passengerCount).toBe(4);
+  });
+
+  it("converte campos opcionais vazios em null", () => {
+    const r = createRequestSchema.parse({
+      ...baseInput,
+      passengerNames: " ",
+      contactPhone: "",
+      agency: "",
+    });
+    expect(r.passengerNames).toBeNull();
+    expect(r.contactPhone).toBeNull();
+    expect(r.agency).toBeNull();
+  });
+});
+
+describe("deriveShift", () => {
+  const day = { withdrawalDate: "2026-06-15", returnDate: "2026-06-15" };
+
+  it("manhã quando termina até o meio-dia", () => {
+    expect(deriveShift({ ...day, withdrawalTime: "07:30", returnTime: "12:00" })).toBe("MATUTINO");
+  });
+
+  it("tarde quando começa a partir do meio-dia", () => {
+    expect(deriveShift({ ...day, withdrawalTime: "13:00", returnTime: "18:00" })).toBe(
+      "VESPERTINO",
+    );
+  });
+
+  it("integral quando atravessa o meio-dia", () => {
+    expect(deriveShift({ ...day, withdrawalTime: "08:00", returnTime: "17:00" })).toBe("INTEGRAL");
+  });
+
+  it("integral quando dura mais de um dia", () => {
+    expect(
+      deriveShift({
+        withdrawalDate: "2026-06-15",
+        returnDate: "2026-06-16",
+        withdrawalTime: "08:00",
+        returnTime: "10:00",
+      }),
+    ).toBe("INTEGRAL");
+  });
 });
 
 describe("approveRequestSchema", () => {
-  it("exige vehicleId", () => {
+  it("exige veículo e condutor", () => {
     expect(approveRequestSchema.safeParse({}).success).toBe(false);
-    expect(approveRequestSchema.safeParse({ vehicleId: "v1" }).success).toBe(true);
+    expect(approveRequestSchema.safeParse({ vehicleId: "v1" }).success).toBe(false);
+    expect(approveRequestSchema.safeParse({ vehicleId: "v1", driverId: "d1" }).success).toBe(true);
   });
 });
 

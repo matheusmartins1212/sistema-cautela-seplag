@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { env } from "@/server/config/env";
 import { normalizeCpf, isValidCpf } from "@/shared/validation/cpf";
-import { normalizeEmail, isAllowedInstitutionalEmail } from "@/shared/validation/email-domain";
+import {
+  describeAllowedDomains,
+  isAllowedInstitutionalEmail,
+  normalizeEmail,
+} from "@/shared/validation/email-domain";
 import { checkPasswordStrength } from "@/shared/validation/password";
 
 /**
@@ -13,7 +17,7 @@ const institutionalEmail = z
   .string()
   .transform((v) => normalizeEmail(v))
   .refine((email) => isAllowedInstitutionalEmail(email, env.ALLOWED_EMAIL_DOMAIN), {
-    message: `O e-mail deve pertencer ao domínio institucional @${env.ALLOWED_EMAIL_DOMAIN}.`,
+    message: `O e-mail deve ser institucional (${describeAllowedDomains(env.ALLOWED_EMAIL_DOMAIN)}).`,
   });
 
 const strongPassword = z.string().superRefine((value, ctx) => {
@@ -39,6 +43,14 @@ export const registerSchema = z
     phone: z.string().trim().min(8, "Informe um telefone válido.").max(20),
     sector: z.string().trim().min(1, "Informe o setor."),
     department: z.string().trim().min(1, "Informe a lotação."),
+    // Órgão de origem (catálogo da central). Validado contra o catálogo no service.
+    agency: z
+      .string()
+      .trim()
+      .max(150)
+      .transform((v) => (v.length === 0 ? null : v))
+      .nullable()
+      .optional(),
     password: strongPassword,
     confirmPassword: z.string(),
   })

@@ -131,7 +131,7 @@ export default async function AdminAvariasPage({ searchParams }: Props) {
                             href={`/admin/cautelas/${dmg.cautionId}`}
                             className="font-medium text-institutional-700 hover:underline"
                           >
-                            Ver cautela
+                            Ver viagem
                           </Link>
                         )}
                       </div>

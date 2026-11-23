@@ -63,6 +63,10 @@ const baseActor = {
     status: "ACTIVE" as const,
     passwordHash: "h",
     emailVerifiedAt: new Date(),
+    agency: null,
+    isDriver: false,
+    driverLicenseCategory: null,
+    driverLicenseExpiresAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -78,6 +82,7 @@ const adminActor = {
 const baseCaution = {
   id: "c1",
   userId: "u1",
+  driverId: null as string | null,
   vehicleId: "v1",
   status: "AGUARDANDO_RETIRADA" as const,
   vehicle: {
@@ -178,6 +183,60 @@ describe("getOrInitChecklistForCaution", () => {
         }),
       }),
     );
+  });
+});
+
+describe("getOrInitChecklistForCaution com condutor escalado", () => {
+  const tripWithDriver = { ...baseCaution, userId: "solicitante", driverId: "u1" };
+
+  beforeEach(() => {
+    (prisma.checklist.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.checklistItemTemplate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.checklist.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseChecklist,
+      status: "PENDENTE",
+    });
+  });
+
+  it("o checklist fica no nome do condutor e a saída começa quando ele abre", async () => {
+    (prisma.caution.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(tripWithDriver);
+
+    await getOrInitChecklistForCaution("c1", "RETIRADA", baseActor);
+
+    expect(prisma.checklist.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ userId: "u1" }) }),
+    );
+    expect(prisma.caution.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "RETIRADA_EM_ANDAMENTO" } }),
+    );
+  });
+
+  it("o solicitante não preenche o checklist de uma viagem com condutor (404)", async () => {
+    (prisma.caution.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseCaution,
+      userId: "u1",
+      driverId: "condutor",
+    });
+    await expect(getOrInitChecklistForCaution("c1", "RETIRADA", baseActor)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("a central abre o checklist sem dar a largada na viagem", async () => {
+    (prisma.caution.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...tripWithDriver,
+      driverId: "condutor",
+    });
+    (prisma.checklist.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseChecklist,
+      userId: "condutor",
+      status: "PENDENTE",
+    });
+    await getOrInitChecklistForCaution("c1", "RETIRADA", adminActor);
+    expect(prisma.checklist.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ userId: "condutor" }) }),
+    );
+    expect(prisma.caution.update).not.toHaveBeenCalled();
   });
 });
 

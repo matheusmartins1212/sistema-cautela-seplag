@@ -47,6 +47,10 @@ const baseActor = {
     status: "ACTIVE" as const,
     passwordHash: "h",
     emailVerifiedAt: new Date(),
+    agency: null,
+    isDriver: false,
+    driverLicenseCategory: null,
+    driverLicenseExpiresAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -63,6 +67,7 @@ const baseCaution = {
   publicCode: "CTL-2026-06-15-AAAAAAAA",
   requestId: "r1",
   userId: "u1",
+  driverId: null as string | null,
   vehicleId: "v1",
   status: "AGUARDANDO_RETIRADA" as const,
   approvedByAdminId: "admin1",
@@ -103,6 +108,25 @@ describe("getCautionById (anti-IDOR)", () => {
     await expect(getCautionById("c1", baseActor)).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("condutor escalado enxerga a viagem", async () => {
+    (prisma.caution.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseCaution,
+      userId: "solicitante",
+      driverId: "u1",
+    });
+    const r = await getCautionById("c1", baseActor);
+    expect(r.id).toBe("c1");
+  });
+
+  it("solicitante enxerga a viagem conduzida por outro", async () => {
+    (prisma.caution.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseCaution,
+      driverId: "condutor",
+    });
+    const r = await getCautionById("c1", baseActor);
+    expect(r.id).toBe("c1");
+  });
+
   it("ADMIN vê qualquer", async () => {
     (prisma.caution.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...baseCaution,
@@ -114,13 +138,15 @@ describe("getCautionById (anti-IDOR)", () => {
 });
 
 describe("listMyCautions", () => {
-  it("filtra pelo userId do solicitante", async () => {
+  it("lista as viagens que o usuário conduz (e cautelas antigas sem condutor)", async () => {
     (prisma.caution.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
     (prisma.caution.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     await listMyCautions({ page: 1, pageSize: 10 }, baseActor);
     expect(prisma.caution.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: "u1" }),
+        where: expect.objectContaining({
+          OR: [{ driverId: "u1" }, { driverId: null, userId: "u1" }],
+        }),
       }),
     );
   });

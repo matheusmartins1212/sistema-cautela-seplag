@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
 import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { apiPost } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 
 type FieldErrors = Record<string, string[]>;
 
@@ -15,6 +16,14 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [done, setDone] = useState(false);
+  // Órgãos atendidos pela central; vazio enquanto a central não cadastrar nenhum.
+  const [agencies, setAgencies] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    void apiGet<{ agencies: { id: string; name: string }[] }>("/api/agencies").then((r) => {
+      if (r.ok) setAgencies(r.data.agencies);
+    });
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +40,7 @@ export default function RegisterPage() {
       phone: f.get("phone"),
       sector: f.get("sector"),
       department: f.get("department"),
+      agency: f.get("agency") || null,
       password: f.get("password"),
       confirmPassword: f.get("confirmPassword"),
     });
@@ -64,9 +74,7 @@ export default function RegisterPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-institutional-900">Criar conta</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Use seu e-mail corporativo <strong>@seplag.mt.gov.br</strong>.
-        </p>
+        <p className="mt-1 text-sm text-gray-500">Use o e-mail institucional do seu órgão.</p>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -93,7 +101,7 @@ export default function RegisterPage() {
           label="E-mail institucional"
           name="email"
           type="email"
-          placeholder="nome@seplag.mt.gov.br"
+          placeholder="nome@orgao.mt.gov.br"
           errors={fieldErrors.email}
           required
         />
@@ -108,6 +116,18 @@ export default function RegisterPage() {
           />
           <Field label="Setor" name="sector" errors={fieldErrors.sector} required />
         </div>
+        {agencies.length > 0 && (
+          <Select label="Órgão" name="agency" defaultValue="" errors={fieldErrors.agency} required>
+            <option value="" disabled>
+              Selecione…
+            </option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.name}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Field label="Lotação" name="department" errors={fieldErrors.department} required />
         <PasswordField
           label="Senha"

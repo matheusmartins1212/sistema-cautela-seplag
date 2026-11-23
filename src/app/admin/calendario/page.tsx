@@ -97,7 +97,7 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold text-institutional-900">Calendário</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Ocupação da frota por dia e turno. Clique em um dia para ver as cautelas.
+            Ocupação da frota por dia e turno. Clique em um dia para ver as viagens.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -194,7 +194,7 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
                   key={d.date}
                   scroll={false}
                   aria-current={isSelected ? "date" : undefined}
-                  aria-label={`${d.day} de ${MONTH_NAMES[month - 1]}: ${d.total} cautela(s)`}
+                  aria-label={`${d.day} de ${MONTH_NAMES[month - 1]}: ${d.total} viagem(ns)`}
                   href={`/admin/calendario?${filterQs({ month: monthValue, day: d.date })}`}
                   className={cn(
                     "min-h-24 border-b border-r border-gray-100 p-2 transition hover:bg-institutional-50",
@@ -239,18 +239,18 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
           >
             {!dayCautions ? (
               <>
-                <h2 className="text-sm font-semibold text-gray-700">Cautelas do dia</h2>
+                <h2 className="text-sm font-semibold text-gray-700">Viagens do dia</h2>
                 <p className="mt-3 text-sm text-gray-500">
-                  Clique em um dia do calendário para ver as cautelas.
+                  Clique em um dia do calendário para ver as viagens.
                 </p>
               </>
             ) : (
               <>
                 <h2 className="text-sm font-semibold text-gray-700">
-                  Cautelas em {selectedDay?.split("-").reverse().join("/")} ({dayCautions.length})
+                  Viagens em {selectedDay?.split("-").reverse().join("/")} ({dayCautions.length})
                 </h2>
                 {dayCautions.length === 0 ? (
-                  <p className="mt-3 text-sm text-gray-500">Nenhuma cautela neste dia.</p>
+                  <p className="mt-3 text-sm text-gray-500">Nenhuma viagem neste dia.</p>
                 ) : (
                   <ul className="mt-3 divide-y divide-gray-100">
                     {dayCautions.map((c) => (
@@ -266,8 +266,14 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
                             {c.vehicle.brand} {c.vehicle.model} · {formatPlate(c.vehicle.plate)}
                           </p>
                           <p className="truncate text-xs text-gray-500">
-                            {c.user.fullName} · {c.request.destination}
+                            {c.request.requestingAgency ?? c.user.fullName} ·{" "}
+                            {c.request.destination}
                           </p>
+                          {c.driver && (
+                            <p className="truncate text-xs text-gray-500">
+                              Condutor: {c.driver.fullName}
+                            </p>
+                          )}
                         </div>
                         <CautionStatusBadge status={c.status} />
                       </li>
