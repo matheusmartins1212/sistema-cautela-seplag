@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import brasao from "@/assets/brasao-mt.png";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { activeNavHref, type NavItem } from "./nav";
 import type { ShellUser } from "./shell-user";
@@ -14,6 +13,8 @@ import type { ShellUser } from "./shell-user";
 interface Props {
   brandTitle: string;
   user: ShellUser;
+  /** Página "Meu perfil" da área (servidor ou admin). */
+  profileHref: string;
   nav: NavItem[];
   contentMaxWidth?: "5xl" | "7xl";
   children: React.ReactNode;
@@ -32,10 +33,18 @@ function initials(fullName: string): string {
 
 /**
  * Estrutura das telas logadas. Não há barra superior: marca, navegação e
- * usuário (nome, perfil, notificações e sair) ficam todos na barra lateral.
+ * usuário ficam na barra lateral. O bloco do usuário, no rodapé, leva à página
+ * "Meu perfil", onde ficam os dados da conta e a opção de sair.
  * No celular, uma faixa mínima no topo só abre o menu e mostra as notificações.
  */
-export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", children }: Props) {
+export function AppShell({
+  brandTitle,
+  user,
+  profileHref,
+  nav,
+  contentMaxWidth = "7xl",
+  children,
+}: Props) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -94,11 +103,33 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
     </nav>
   );
 
-  // Rodapé da barra lateral: perfil (abre o painel da conta) e notificações.
-  // No computador o painel abre ao lado da barra; no menu do celular, para cima.
+  // Rodapé da barra lateral: atalho para a página "Meu perfil" e notificações.
+  const profileActive = pathname === profileHref;
   const userPanel = (inDrawer: boolean) => (
     <div className="flex items-center border-t border-institutional-700/50 px-2 py-3">
-      <ProfileMenu user={user} placement={inDrawer ? "up" : "side"} />
+      <Link
+        href={profileHref}
+        onClick={() => setDrawerOpen(false)}
+        aria-current={profileActive ? "page" : undefined}
+        aria-label={`Meu perfil: ${user.fullName}`}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300",
+          profileActive ? "bg-institutional-700" : "hover:bg-institutional-800/60",
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-sm font-semibold text-white ring-1 ring-white/10"
+        >
+          {initials(user.fullName)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 break-words text-sm font-medium leading-tight text-white">
+            {user.fullName}
+          </span>
+          <span className="block truncate text-xs text-institutional-200">{user.roleLabel}</span>
+        </span>
+      </Link>
       {!inDrawer && <NotificationBell placement="sidebar" />}
     </div>
   );
@@ -162,148 +193,6 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
         {children}
       </main>
     </div>
-  );
-}
-
-/**
- * Bloco do perfil no rodapé da barra lateral. Ao clicar, abre o painel da
- * conta: dados cadastrais de quem está logado e a opção de sair.
- */
-function ProfileMenu({ user, placement }: { user: ShellUser; placement: "side" | "up" }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!open) return;
-    // Teclado: o foco vai para o painel ao abrir.
-    ref.current?.querySelector<HTMLElement>("[data-profile-panel]")?.focus();
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const details: Array<[string, string]> = [
-    ["E-mail", user.email],
-    ["CPF", user.cpfMasked],
-    ["Matrícula", user.registrationNumber],
-    ["Telefone", user.phone],
-    ["Setor", user.sector],
-    ["Lotação", user.department],
-    ["Conta criada em", user.memberSince],
-  ];
-
-  return (
-    <div ref={ref} className="relative min-w-0 flex-1">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={`Perfil: ${user.fullName}`}
-        className={cn(
-          "flex w-full items-center gap-2.5 rounded-md px-1.5 py-2 text-left transition-colors hover:bg-institutional-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300",
-          open && "bg-institutional-800/60",
-        )}
-      >
-        <span
-          aria-hidden="true"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-sm font-semibold text-white"
-        >
-          {initials(user.fullName)}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 break-words text-sm font-medium leading-tight text-white">
-            {user.fullName}
-          </span>
-          <span className="block truncate text-xs text-institutional-200">{user.roleLabel}</span>
-        </span>
-        <ChevronIcon open={open} />
-      </button>
-
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Meu perfil"
-          tabIndex={-1}
-          data-profile-panel
-          className={cn(
-            "absolute z-50 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg focus:outline-none",
-            placement === "side"
-              ? "bottom-0 left-full ml-14 w-80"
-              : "bottom-full left-0 mb-2 w-[15rem]",
-          )}
-        >
-          <div className="flex items-center gap-3 bg-institutional-900 px-4 py-4 text-white">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-base font-semibold"
-            >
-              {initials(user.fullName)}
-            </span>
-            <div className="min-w-0">
-              <p className="break-words text-sm font-semibold leading-tight">{user.fullName}</p>
-              <span className="mt-1 inline-block rounded-full bg-white/15 px-2 py-0.5 text-[0.7rem] font-medium">
-                {user.roleLabel}
-              </span>
-            </div>
-          </div>
-
-          <dl className="max-h-[50vh] space-y-2.5 overflow-y-auto px-4 py-3 text-sm">
-            {details.map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">
-                  {label}
-                </dt>
-                <dd className="text-gray-900 [overflow-wrap:anywhere]">
-                  {value || "Não informado"}
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          <div className="border-t border-gray-100 p-1">
-            <LogoutButton appearance="menuitem" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={cn(
-        "shrink-0 text-institutional-200 transition-transform",
-        open ? "rotate-0" : "rotate-180",
-      )}
-    >
-      <polyline points="18 15 12 9 6 15" />
-    </svg>
   );
 }
 

@@ -60,6 +60,7 @@ export const ADMIN_NAV: NavItem[] = [
  */
 export function adminEquivalentPath(pathname: string | null): string {
   if (!pathname) return "/admin";
+  if (pathname === "/perfil" || pathname.startsWith("/perfil/")) return "/admin/perfil";
   const request = /^\/solicitacoes\/(c[a-z0-9]{20,})\/?$/.exec(pathname);
   if (request) return `/admin/solicitacoes/${request[1]}`;
   const caution = /^\/cautelas\/(c[a-z0-9]{20,})(?:\/.*)?$/.exec(pathname);

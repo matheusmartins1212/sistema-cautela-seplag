@@ -37,8 +37,18 @@ function highlighted(pathname: string, items: NavItem[]): string[] {
 
 describe("item aceso no menu", () => {
   const routes = pageRoutes();
-  const userRoutes = routes.filter((r) => /^\/(painel|solicitacoes|cautelas)(\/|$)/.test(r));
-  const adminRoutes = routes.filter((r) => /^\/admin(\/|$)/.test(r));
+  // "Meu perfil" não fica no menu: quem acende é o bloco do usuário no rodapé.
+  const isProfile = (r: string) => /^(\/admin)?\/perfil$/.test(r);
+  const userRoutes = routes.filter(
+    (r) => /^\/(painel|solicitacoes|cautelas)(\/|$)/.test(r) && !isProfile(r),
+  );
+  const adminRoutes = routes.filter((r) => /^\/admin(\/|$)/.test(r) && !isProfile(r));
+
+  it("páginas de perfil existem nas duas áreas e não acendem item do menu", () => {
+    expect(routes).toEqual(expect.arrayContaining(["/perfil", "/admin/perfil"]));
+    expect(highlighted("/perfil", USER_NAV)).toEqual([]);
+    expect(highlighted("/admin/perfil", ADMIN_NAV)).toEqual([]);
+  });
 
   it("encontra as páginas das duas áreas", () => {
     expect(userRoutes.length).toBeGreaterThan(5);
@@ -81,6 +91,10 @@ describe("adminEquivalentPath", () => {
     expect(adminEquivalentPath(`/solicitacoes/${id}`)).toBe(`/admin/solicitacoes/${id}`);
     expect(adminEquivalentPath(`/cautelas/${id}`)).toBe(`/admin/cautelas/${id}`);
     expect(adminEquivalentPath(`/cautelas/${id}/checklist/RETIRADA`)).toBe(`/admin/cautelas/${id}`);
+  });
+
+  it("leva o perfil do servidor para o perfil do admin", () => {
+    expect(adminEquivalentPath("/perfil")).toBe("/admin/perfil");
   });
 
   it("manda o resto para o início do painel", () => {

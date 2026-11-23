@@ -16,7 +16,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!isAdmin(session.user.role)) redirect("/painel");
 
   return (
-    <AppShell brandTitle="Painel administrativo" user={toShellUser(session.user)} nav={ADMIN_NAV}>
+    <AppShell
+      brandTitle="Painel administrativo"
+      user={toShellUser(session.user)}
+      profileHref="/admin/perfil"
+      nav={ADMIN_NAV}
+    >
       {children}
     </AppShell>
   );

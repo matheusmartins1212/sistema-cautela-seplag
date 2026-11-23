@@ -7,7 +7,7 @@ import { SESSION_COOKIE } from "@/server/modules/auth/session-cookie";
  * real (sessão ativa, usuário ativo, papel) ocorre no backend/Server Components,
  * que são a fonte de verdade. O middleware não acessa banco.
  */
-const PROTECTED_PREFIXES = ["/painel", "/admin", "/solicitacoes", "/cautelas"];
+const PROTECTED_PREFIXES = ["/painel", "/admin", "/solicitacoes", "/cautelas", "/perfil"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -31,5 +31,11 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/painel/:path*", "/admin/:path*", "/solicitacoes/:path*", "/cautelas/:path*"],
+  matcher: [
+    "/painel/:path*",
+    "/admin/:path*",
+    "/solicitacoes/:path*",
+    "/cautelas/:path*",
+    "/perfil/:path*",
+  ],
 };

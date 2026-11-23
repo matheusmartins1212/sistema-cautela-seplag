@@ -29,6 +29,7 @@ export async function UserAreaShell({
       brandTitle="Cautela de Veículos"
       contentMaxWidth="5xl"
       user={toShellUser(session.user)}
+      profileHref="/perfil"
       nav={USER_NAV}
     >
       {children}
