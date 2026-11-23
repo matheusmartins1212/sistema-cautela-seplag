@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import { AppShell } from "@/components/shell/app-shell";
-import { USER_NAV, adminEquivalentPath } from "@/components/shell/nav";
+import { USER_NAV_SECTIONS, adminEquivalentPath } from "@/components/shell/nav";
 import { toShellUser } from "@/components/shell/shell-user";
 
 /**
@@ -30,7 +30,7 @@ export async function UserAreaShell({
       contentMaxWidth="5xl"
       user={toShellUser(session.user)}
       profileHref="/perfil"
-      nav={USER_NAV}
+      sections={USER_NAV_SECTIONS}
     >
       {children}
     </AppShell>

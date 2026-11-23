@@ -1,6 +1,26 @@
+/** Ícones disponíveis no menu (desenhados em nav-icons.tsx). */
+export type NavIconName =
+  | "dashboard"
+  | "home"
+  | "calendar"
+  | "inbox"
+  | "route"
+  | "alert"
+  | "car"
+  | "steering"
+  | "building"
+  | "users"
+  | "chart"
+  | "plus";
+
+/** Contadores de pendência mostrados ao lado de alguns itens. */
+export type NavBadgeKey = "pendingRequests" | "checklistsToReview" | "openDamages";
+
 export interface NavItem {
   href: string;
   label: string;
+  icon?: NavIconName;
+  badge?: NavBadgeKey;
   /** Rotas "índice" exigem match exato para não acender em subrotas. */
   exact?: boolean;
   /** Outras rotas que pertencem a este item (ex.: checklist pertence a Cautelas). */
@@ -33,31 +53,76 @@ export function activeNavHref(pathname: string, items: readonly NavItem[]): stri
   return best?.href ?? null;
 }
 
+export interface NavSection {
+  /** Título da seção; a primeira costuma não ter. */
+  title?: string;
+  items: NavItem[];
+}
+
 /**
  * Navegação da área do usuário. Todo servidor pode pedir veículo, com ou sem
  * condutor. "Minhas viagens" reúne as viagens em que a pessoa está com o
  * veículo: as que ela mesma dirige e as que foi escalada como condutora.
  */
-export const USER_NAV: NavItem[] = [
-  { href: "/painel", label: "Início", exact: true },
-  { href: "/solicitacoes/nova", label: "Solicitar veículo", exact: true },
-  { href: "/solicitacoes", label: "Minhas solicitações" },
-  { href: "/cautelas", label: "Minhas viagens" },
+export const USER_NAV_SECTIONS: NavSection[] = [
+  { items: [{ href: "/painel", label: "Início", exact: true, icon: "home" }] },
+  {
+    title: "Transporte",
+    items: [
+      { href: "/solicitacoes/nova", label: "Solicitar veículo", exact: true, icon: "plus" },
+      { href: "/solicitacoes", label: "Minhas solicitações", icon: "inbox" },
+      { href: "/cautelas", label: "Minhas viagens", icon: "route" },
+    ],
+  },
 ];
 
 /** Navegação da área administrativa (central). */
-export const ADMIN_NAV: NavItem[] = [
-  { href: "/admin", label: "Painel", exact: true },
-  { href: "/admin/calendario", label: "Calendário" },
-  { href: "/admin/solicitacoes", label: "Solicitações" },
-  { href: "/admin/cautelas", label: "Viagens", alsoMatches: ["/admin/checklists"] },
-  { href: "/admin/veiculos", label: "Veículos" },
-  { href: "/admin/condutores", label: "Condutores" },
-  { href: "/admin/orgaos", label: "Órgãos" },
-  { href: "/admin/avarias", label: "Avarias" },
-  { href: "/admin/usuarios", label: "Usuários" },
-  { href: "/admin/relatorios", label: "Relatórios" },
+export const ADMIN_NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { href: "/admin", label: "Painel", exact: true, icon: "dashboard" },
+      { href: "/admin/calendario", label: "Calendário", icon: "calendar" },
+    ],
+  },
+  {
+    title: "Operação",
+    items: [
+      {
+        href: "/admin/solicitacoes",
+        label: "Solicitações",
+        icon: "inbox",
+        badge: "pendingRequests",
+      },
+      {
+        href: "/admin/cautelas",
+        label: "Viagens",
+        icon: "route",
+        alsoMatches: ["/admin/checklists"],
+        badge: "checklistsToReview",
+      },
+      { href: "/admin/avarias", label: "Avarias", icon: "alert", badge: "openDamages" },
+    ],
+  },
+  {
+    title: "Frota",
+    items: [
+      { href: "/admin/veiculos", label: "Veículos", icon: "car" },
+      { href: "/admin/condutores", label: "Condutores", icon: "steering" },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      { href: "/admin/orgaos", label: "Órgãos", icon: "building" },
+      { href: "/admin/usuarios", label: "Usuários", icon: "users" },
+      { href: "/admin/relatorios", label: "Relatórios", icon: "chart" },
+    ],
+  },
 ];
+
+/** Listas planas (para destacar o item ativo e para os testes). */
+export const USER_NAV: NavItem[] = USER_NAV_SECTIONS.flatMap((s) => s.items);
+export const ADMIN_NAV: NavItem[] = ADMIN_NAV_SECTIONS.flatMap((s) => s.items);
 
 /**
  * Para onde mandar um administrador que abriu uma tela da área do servidor.

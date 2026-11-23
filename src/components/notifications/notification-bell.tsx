@@ -109,7 +109,7 @@ export function NotificationBell({ placement = "topbar" }: { placement?: "sideba
         aria-label={`Notificações${unread > 0 ? ` (${unread} não lidas)` : ""}`}
         aria-haspopup="true"
         aria-expanded={open}
-        className="relative rounded-md p-2 text-institutional-50 hover:bg-institutional-700 focus:outline-none focus:ring-2 focus:ring-institutional-300"
+        className="relative rounded-lg p-2 text-institutional-100 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300"
       >
         <BellIcon />
         {unread > 0 && (
