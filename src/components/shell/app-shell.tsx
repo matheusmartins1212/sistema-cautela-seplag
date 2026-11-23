@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import brasao from "@/assets/brasao-mt.png";
@@ -12,7 +12,7 @@ import type { NavItem } from "./nav";
 
 interface Props {
   brandTitle: string;
-  user: { fullName: string; roleLabel: string };
+  user: { fullName: string; email: string; roleLabel: string };
   nav: NavItem[];
   contentMaxWidth?: "5xl" | "7xl";
   children: React.ReactNode;
@@ -94,28 +94,11 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
     </nav>
   );
 
-  // Rodapé da barra lateral: quem está logado e as ações da conta.
+  // Rodapé da barra lateral: perfil (abre o menu da conta) e notificações.
   const userPanel = (withBell: boolean) => (
-    <div className="border-t border-institutional-700/50 p-3">
-      <div className="flex items-center gap-3 px-2 py-2">
-        <span
-          aria-hidden="true"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-sm font-semibold text-white"
-        >
-          {initials(user.fullName)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p
-            className="line-clamp-2 break-words text-sm font-medium leading-tight text-white"
-            title={user.fullName}
-          >
-            {user.fullName}
-          </p>
-          <p className="truncate text-xs text-institutional-200">{user.roleLabel}</p>
-        </div>
-        {withBell && <NotificationBell placement="sidebar" />}
-      </div>
-      <LogoutButton appearance="sidebar" />
+    <div className="flex items-center border-t border-institutional-700/50 px-2 py-3">
+      <UserMenu user={user} />
+      {withBell && <NotificationBell placement="sidebar" />}
     </div>
   );
 
@@ -178,6 +161,109 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
         {children}
       </main>
     </div>
+  );
+}
+
+/**
+ * Bloco do perfil no rodapé da barra lateral. Ao clicar, abre para cima um
+ * menu com os dados da conta e a opção de sair.
+ */
+function UserMenu({ user }: { user: Props["user"] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Teclado: o foco vai para a opção do menu ao abrir.
+    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Perfil: ${user.fullName}`}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-md px-1.5 py-2 text-left transition-colors hover:bg-institutional-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-institutional-300",
+          open && "bg-institutional-800/60",
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-sm font-semibold text-white"
+        >
+          {initials(user.fullName)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 break-words text-sm font-medium leading-tight text-white">
+            {user.fullName}
+          </span>
+          <span className="block truncate text-xs text-institutional-200">{user.roleLabel}</span>
+        </span>
+        <ChevronIcon open={open} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Conta"
+          className="absolute bottom-full left-0 z-50 mb-2 w-60 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg"
+        >
+          <div className="border-b border-gray-100 px-4 py-3">
+            <p className="text-sm font-semibold text-gray-900">{user.fullName}</p>
+            <p className="truncate text-xs text-gray-500" title={user.email}>
+              {user.email}
+            </p>
+          </div>
+          <div className="p-1">
+            <LogoutButton appearance="menuitem" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={cn(
+        "shrink-0 text-institutional-200 transition-transform",
+        open ? "rotate-0" : "rotate-180",
+      )}
+    >
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
   );
 }
 

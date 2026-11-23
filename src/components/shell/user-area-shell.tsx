@@ -30,6 +30,7 @@ export async function UserAreaShell({
       contentMaxWidth="5xl"
       user={{
         fullName: session.user.fullName,
+        email: session.user.email,
         roleLabel: USER_ROLE_LABEL[session.user.role],
       }}
       nav={USER_NAV}

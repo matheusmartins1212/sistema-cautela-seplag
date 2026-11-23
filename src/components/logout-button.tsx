@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiPost } from "@/lib/api-client";
 
-export function LogoutButton({ appearance = "button" }: { appearance?: "button" | "sidebar" }) {
+export function LogoutButton({ appearance = "button" }: { appearance?: "button" | "menuitem" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -16,13 +16,14 @@ export function LogoutButton({ appearance = "button" }: { appearance?: "button" 
     router.refresh();
   }
 
-  if (appearance === "sidebar") {
+  if (appearance === "menuitem") {
     return (
       <button
         type="button"
+        role="menuitem"
         onClick={onClick}
         disabled={loading}
-        className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-institutional-100 transition-colors hover:bg-institutional-800/60 hover:text-white disabled:opacity-60"
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/5 focus:bg-danger/5 focus:outline-none disabled:opacity-60"
       >
         <LogoutIcon />
         {loading ? "Saindo…" : "Sair"}

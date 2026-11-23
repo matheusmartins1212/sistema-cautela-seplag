@@ -20,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       brandTitle="Painel administrativo"
       user={{
         fullName: session.user.fullName,
+        email: session.user.email,
         roleLabel: USER_ROLE_LABEL[session.user.role],
       }}
       nav={ADMIN_NAV}
