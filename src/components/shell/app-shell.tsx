@@ -23,6 +23,22 @@ function isActive(pathname: string, item: NavItem): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
+function initials(fullName: string): string {
+  const parts = fullName
+    .replace(/\(.*?\)/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const first = parts[0]?.[0] ?? "?";
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
+  return `${first}${last}`.toUpperCase();
+}
+
+/**
+ * Estrutura das telas logadas. Não há barra superior: marca, navegação e
+ * usuário (nome, perfil, notificações e sair) ficam todos na barra lateral.
+ * No celular, uma faixa mínima no topo só abre o menu e mostra as notificações.
+ */
 export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", children }: Props) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -47,8 +63,18 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
     };
   }, [drawerOpen]);
 
+  const brand = (
+    <div className="flex items-center gap-3 border-b border-institutional-700/50 px-5 py-4">
+      <Image src={brasao} alt="Brasão do Estado de Mato Grosso" className="h-11 w-auto shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs font-medium tracking-wide text-institutional-200">SEPLAG / SATGF</p>
+        <p className="text-base font-semibold leading-tight text-white">{brandTitle}</p>
+      </div>
+    </div>
+  );
+
   const navList = (
-    <nav className="flex flex-col gap-1 p-3">
+    <nav aria-label="Navegação principal" className="flex flex-col gap-1 p-3">
       {nav.map((item) => (
         <Link
           key={item.href}
@@ -68,23 +94,59 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
     </nav>
   );
 
-  const brand = (
-    <div className="flex items-center gap-3 border-b border-institutional-700/50 px-5 py-4">
-      <Image src={brasao} alt="Brasão do Estado de Mato Grosso" className="h-11 w-auto shrink-0" />
-      <div className="min-w-0">
-        <p className="text-xs font-medium tracking-wide text-institutional-200">SEPLAG / SATGF</p>
-        <p className="text-base font-semibold leading-tight text-white">{brandTitle}</p>
+  // Rodapé da barra lateral: quem está logado e as ações da conta.
+  const userPanel = (withBell: boolean) => (
+    <div className="border-t border-institutional-700/50 p-3">
+      <div className="flex items-center gap-3 px-2 py-2">
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-institutional-700 text-sm font-semibold text-white"
+        >
+          {initials(user.fullName)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p
+            className="line-clamp-2 break-words text-sm font-medium leading-tight text-white"
+            title={user.fullName}
+          >
+            {user.fullName}
+          </p>
+          <p className="truncate text-xs text-institutional-200">{user.roleLabel}</p>
+        </div>
+        {withBell && <NotificationBell placement="sidebar" />}
       </div>
+      <LogoutButton appearance="sidebar" />
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gray-50 lg:flex">
-      {/* Menu lateral no computador: fica fixo enquanto a página rola */}
-      <aside className="hidden w-64 shrink-0 flex-col bg-institutional-900 lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:overflow-y-auto">
+      {/* Barra lateral no computador: fica fixa enquanto a página rola. Só a
+          lista de links rola, para o rodapé do usuário ficar sempre visível e o
+          painel de notificações poder abrir para fora da barra. */}
+      <aside className="hidden w-64 shrink-0 flex-col bg-institutional-900 lg:sticky lg:top-0 lg:z-30 lg:flex lg:h-screen lg:self-start">
         {brand}
-        {navList}
+        <div className="min-h-0 flex-1 overflow-y-auto">{navList}</div>
+        {userPanel(true)}
       </aside>
+
+      {/* Faixa mínima no celular: abrir menu e notificações */}
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-institutional-900 px-3 py-2 text-white lg:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Abrir menu"
+            aria-expanded={drawerOpen}
+            className="rounded-md p-2 hover:bg-institutional-700"
+          >
+            <MenuIcon />
+          </button>
+          <Image src={brasao} alt="" aria-hidden="true" className="h-7 w-auto" />
+          <span className="truncate text-sm font-semibold">{brandTitle}</span>
+        </div>
+        <NotificationBell placement="topbar" />
+      </div>
 
       {/* Menu no celular */}
       {drawerOpen && (
@@ -99,48 +161,22 @@ export function AppShell({ brandTitle, user, nav, contentMaxWidth = "7xl", child
             onClick={() => setDrawerOpen(false)}
             aria-hidden="true"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col overflow-y-auto bg-institutional-900 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-institutional-900 shadow-xl">
             {brand}
-            {navList}
+            <div className="min-h-0 flex-1 overflow-y-auto">{navList}</div>
+            {userPanel(false)}
           </aside>
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-gray-200 bg-institutional-800 px-4 py-3 text-white lg:px-6">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Abrir menu"
-              aria-expanded={drawerOpen}
-              className="rounded-md p-2 hover:bg-institutional-700 lg:hidden"
-            >
-              <MenuIcon />
-            </button>
-            <Image src={brasao} alt="" aria-hidden="true" className="h-7 w-auto lg:hidden" />
-            <span className="text-sm font-semibold lg:hidden">{brandTitle}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-tight">{user.fullName}</p>
-              <p className="text-xs text-institutional-100">{user.roleLabel}</p>
-            </div>
-            <NotificationBell />
-            <LogoutButton />
-          </div>
-        </header>
-
-        <main
-          className={cn(
-            "mx-auto w-full px-4 py-8 lg:px-6",
-            contentMaxWidth === "5xl" ? "max-w-5xl" : "max-w-7xl",
-          )}
-        >
-          {children}
-        </main>
-      </div>
+      <main
+        className={cn(
+          "mx-auto w-full min-w-0 flex-1 px-4 py-8 lg:px-8",
+          contentMaxWidth === "5xl" ? "max-w-5xl" : "max-w-7xl",
+        )}
+      >
+        {children}
+      </main>
     </div>
   );
 }

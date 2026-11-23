@@ -16,26 +16,37 @@ export interface PublicNotification {
 }
 
 /** Mapeia a entidade relacionada para a rota de detalhe correspondente. */
-function resolveHref(entityType: string | null, entityId: string | null): string | null {
+function resolveHref(
+  entityType: string | null,
+  entityId: string | null,
+  audience: NotificationAudience,
+): string | null {
   if (!entityType || !entityId) return null;
+  // Administradores usam só o painel administrativo; servidores, a área deles.
+  const base = audience === "admin" ? "/admin" : "";
   switch (entityType) {
     case "VehicleRequest":
-      return `/solicitacoes/${entityId}`;
+      return `${base}/solicitacoes/${entityId}`;
     case "Caution":
-      return `/cautelas/${entityId}`;
+      return `${base}/cautelas/${entityId}`;
     default:
       return null;
   }
 }
 
-export function toPublicNotification(n: Notification): PublicNotification {
+export type NotificationAudience = "user" | "admin";
+
+export function toPublicNotification(
+  n: Notification,
+  audience: NotificationAudience = "user",
+): PublicNotification {
   return {
     id: n.id,
     type: n.type,
     title: n.title,
     message: n.message,
     read: n.readAt !== null,
-    href: resolveHref(n.relatedEntityType, n.relatedEntityId),
+    href: resolveHref(n.relatedEntityType, n.relatedEntityId, audience),
     createdAt: n.createdAt.toISOString(),
   };
 }

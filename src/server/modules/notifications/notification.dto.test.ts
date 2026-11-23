@@ -36,6 +36,11 @@ describe("toPublicNotification", () => {
     expect(cautN.href).toBe("/cautelas/c1");
   });
 
+  it("para administradores, aponta para as telas do painel administrativo", () => {
+    const n = makeNotification({ relatedEntityType: "Caution", relatedEntityId: "c1" });
+    expect(toPublicNotification(n, "admin").href).toBe("/admin/cautelas/c1");
+  });
+
   it("href é nulo para entidade desconhecida ou ausente", () => {
     expect(
       toPublicNotification(makeNotification({ relatedEntityType: "Foo", relatedEntityId: "x" }))

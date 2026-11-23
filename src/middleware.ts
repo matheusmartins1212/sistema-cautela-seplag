@@ -17,7 +17,13 @@ export function middleware(req: NextRequest) {
   if (!isProtected) return NextResponse.next();
 
   const hasSession = req.cookies.has(SESSION_COOKIE);
-  if (hasSession) return NextResponse.next();
+  if (hasSession) {
+    // Repassa o caminho para os layouts do servidor saberem para onde
+    // redirecionar um administrador que abriu uma tela da área do servidor.
+    const headers = new Headers(req.headers);
+    headers.set("x-pathname", pathname);
+    return NextResponse.next({ request: { headers } });
+  }
 
   const loginUrl = new URL("/login", req.url);
   loginUrl.searchParams.set("next", pathname);

@@ -231,7 +231,7 @@ export default async function AdminCalendarioPage({ searchParams }: Props) {
           </div>
         </div>
 
-        <RevealOnChange watch={selectedDay ?? null} className="xl:sticky xl:top-20">
+        <RevealOnChange watch={selectedDay ?? null} className="xl:sticky xl:top-6">
           <section
             data-day-panel
             aria-live="polite"

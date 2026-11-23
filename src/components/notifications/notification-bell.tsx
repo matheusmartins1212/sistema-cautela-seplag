@@ -35,7 +35,12 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
-export function NotificationBell() {
+/**
+ * "sidebar": sino no rodapé da barra lateral; o painel abre para a direita,
+ * ao lado da barra, alinhado por baixo. "topbar": faixa do celular; o painel
+ * desce alinhado à direita.
+ */
+export function NotificationBell({ placement = "topbar" }: { placement?: "sidebar" | "topbar" }) {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
@@ -57,7 +62,7 @@ export function NotificationBell() {
     return () => clearInterval(timer);
   }, [load]);
 
-  // Fecha ao clicar fora.
+  // Fecha ao clicar fora ou com Esc.
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
@@ -65,8 +70,15 @@ export function NotificationBell() {
         setOpen(false);
       }
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   async function onItemClick(item: NotificationItem) {
@@ -108,7 +120,14 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg">
+        <div
+          className={cn(
+            "absolute z-50 overflow-hidden rounded-card border border-gray-200 bg-white text-gray-900 shadow-lg",
+            placement === "sidebar"
+              ? "bottom-0 left-full ml-8 w-96"
+              : "right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))]",
+          )}
+        >
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <span className="text-sm font-semibold">Notificações</span>
             {unread > 0 && (
@@ -122,7 +141,7 @@ export function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[min(24rem,70vh)] overflow-y-auto">
             {items.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-gray-500">Nenhuma notificação.</p>
             ) : (
