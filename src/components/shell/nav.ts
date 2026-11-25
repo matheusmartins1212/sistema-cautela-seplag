@@ -18,7 +18,7 @@ export type NavBadgeKey =
   | "pendingRequests"
   | "checklistsToReview"
   | "openDamages"
-  | "pendingAccounts";
+  | "accountsAttention";
 
 export interface NavItem {
   href: string;
@@ -118,7 +118,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     title: "Gestão",
     items: [
       { href: "/admin/orgaos", label: "Órgãos", icon: "building" },
-      { href: "/admin/usuarios", label: "Usuários", icon: "users", badge: "pendingAccounts" },
+      { href: "/admin/usuarios", label: "Usuários", icon: "users", badge: "accountsAttention" },
       { href: "/admin/relatorios", label: "Relatórios", icon: "chart" },
     ],
   },

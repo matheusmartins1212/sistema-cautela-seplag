@@ -10,11 +10,18 @@ import { hasAtLeastRole } from "@/server/modules/auth/rbac";
  * pode esconder itens de menu, mas o acesso real é decidido aqui.
  */
 
-/** Exige usuário autenticado e ativo. Lança UNAUTHORIZED caso contrário. */
+/**
+ * Exige usuário autenticado e ativo. Lança UNAUTHORIZED caso contrário.
+ * Com senha provisória, nada além da troca de senha (e do logout) funciona:
+ * a rota de troca usa a sessão direto, sem passar por aqui.
+ */
 export async function requireUser(): Promise<SessionUser> {
   const session = await getCurrentSession();
   if (!session) {
     throw Errors.unauthorized();
+  }
+  if (session.user.mustChangePassword) {
+    throw Errors.passwordChangeRequired();
   }
   return session;
 }

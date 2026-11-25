@@ -29,13 +29,22 @@ function LoginForm() {
     setNeedsConfirmation(false);
 
     const form = new FormData(e.currentTarget);
-    const result = await apiPost<{ user: { role: string } }>("/api/auth/login", {
-      email: form.get("email"),
-      password: form.get("password"),
-    });
+    const result = await apiPost<{ user: { role: string; mustChangePassword: boolean } }>(
+      "/api/auth/login",
+      {
+        email: form.get("email"),
+        password: form.get("password"),
+      },
+    );
 
     setLoading(false);
     if (result.ok) {
+      // Senha provisória: antes de qualquer coisa, a troca obrigatória.
+      if (result.data.user.mustChangePassword) {
+        router.push("/trocar-senha");
+        router.refresh();
+        return;
+      }
       const isAdminRole =
         result.data.user.role === "ADMIN" || result.data.user.role === "SUPER_ADMIN";
       router.push(next ?? (isAdminRole ? "/admin" : "/painel"));

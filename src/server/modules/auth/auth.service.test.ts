@@ -59,6 +59,8 @@ const baseUser = {
   status: "ACTIVE" as const,
   passwordHash: "HASH",
   emailVerifiedAt: new Date(),
+  mustChangePassword: false,
+  passwordResetRequestedAt: null,
   deletedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),

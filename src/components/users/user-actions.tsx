@@ -9,16 +9,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiPost } from "@/lib/api-client";
 import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 import { USER_ROLE_LABEL } from "./labels";
+import { TemporaryPasswordSection } from "./temporary-password-section";
 
 interface Props {
   userId: string;
+  fullName: string;
+  passwordResetRequestedAt: string | null;
+  mustChangePassword: boolean;
   currentStatus: UserStatus;
   currentRole: UserRole;
   canChangeRole: boolean;
   isSelf: boolean;
 }
 
-export function UserActions({ userId, currentStatus, currentRole, canChangeRole, isSelf }: Props) {
+export function UserActions({
+  userId,
+  fullName,
+  passwordResetRequestedAt,
+  mustChangePassword,
+  currentStatus,
+  currentRole,
+  canChangeRole,
+  isSelf,
+}: Props) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [role, setRole] = useState<UserRole>(currentRole);
@@ -103,6 +116,15 @@ export function UserActions({ userId, currentStatus, currentRole, canChangeRole,
           </Button>
         )}
       </section>
+
+      {currentStatus === "ACTIVE" && (
+        <TemporaryPasswordSection
+          userId={userId}
+          fullName={fullName}
+          passwordResetRequestedAt={passwordResetRequestedAt}
+          mustChangePassword={mustChangePassword}
+        />
+      )}
 
       {canChangeRole && (
         <section className="space-y-3 border-t border-gray-100 pt-6">

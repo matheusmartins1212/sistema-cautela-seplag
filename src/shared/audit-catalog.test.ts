@@ -38,6 +38,16 @@ describe("catálogo da auditoria", () => {
     );
   });
 
+  it("descreve o ciclo da senha provisória", () => {
+    expect(describeAudit("PASSWORD_RESET_REQUESTED", { channel: "central" })).toBe(
+      "Pedido feito à central",
+    );
+    expect(describeAudit("PASSWORD_TEMPORARY_SET", { requested: true })).toBe("A pedido da pessoa");
+    expect(describeAudit("PASSWORD_RESET_COMPLETED", { via: "temporary" })).toBe(
+      "Trocou a senha provisória",
+    );
+  });
+
   it("tolera metadados ausentes ou estranhos", () => {
     expect(describeAudit("LOGIN", null)).toBe("");
     expect(describeAudit("REQUEST_REJECTED", ["x"])).toBe("");

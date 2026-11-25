@@ -14,6 +14,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   EMAIL_CONFIRMED: "E-mail confirmado",
   PASSWORD_RESET_REQUESTED: "Pediu recuperação de senha",
   PASSWORD_RESET_COMPLETED: "Redefiniu a senha",
+  PASSWORD_TEMPORARY_SET: "Gerou senha provisória",
   UNAUTHORIZED_ACCESS_ATTEMPT: "Acesso negado",
   USER_ACTIVATED: "Conta liberada",
   USER_DEACTIVATED: "Conta bloqueada",
@@ -67,7 +68,13 @@ export const AUDIT_GROUPS: AuditGroup[] = [
   {
     key: "contas",
     label: "Contas",
-    actions: ["USER_ACTIVATED", "USER_DEACTIVATED", "USER_ROLE_CHANGED", "USER_DRIVER_UPDATED"],
+    actions: [
+      "USER_ACTIVATED",
+      "USER_DEACTIVATED",
+      "USER_ROLE_CHANGED",
+      "USER_DRIVER_UPDATED",
+      "PASSWORD_TEMPORARY_SET",
+    ],
   },
   {
     key: "solicitacoes",
@@ -187,6 +194,12 @@ export function describeAudit(action: AuditAction, rawMetadata: unknown): string
           : "Dados de condutor atualizados";
     case "LOGIN_FAILED":
       return "E-mail ou senha incorretos";
+    case "PASSWORD_RESET_REQUESTED":
+      return m.channel === "central" ? "Pedido feito à central" : "Link pedido por e-mail";
+    case "PASSWORD_RESET_COMPLETED":
+      return m.via === "temporary" ? "Trocou a senha provisória" : "";
+    case "PASSWORD_TEMPORARY_SET":
+      return m.requested ? "A pedido da pessoa" : "";
     case "REGISTER":
       return m.event === "resend_confirmation" ? "Reenvio do e-mail de confirmação" : "";
     case "REQUEST_APPROVED": {

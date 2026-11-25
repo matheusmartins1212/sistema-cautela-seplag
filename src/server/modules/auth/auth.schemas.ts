@@ -87,5 +87,16 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** Troca obrigatória após a senha provisória. */
+export const changeTemporaryPasswordSchema = z
+  .object({
+    password: strongPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem.",
+    path: ["confirmPassword"],
+  });
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

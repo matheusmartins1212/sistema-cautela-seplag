@@ -70,6 +70,9 @@ export default async function AdminUsuarioDetailPage({ params, searchParams }: P
           <h2 className="mb-4 text-sm font-semibold text-gray-700">Gerenciar</h2>
           <UserActions
             userId={user.id}
+            fullName={user.fullName}
+            passwordResetRequestedAt={user.passwordResetRequestedAt}
+            mustChangePassword={user.mustChangePassword}
             currentStatus={user.status}
             currentRole={user.role}
             canChangeRole={canChangeRole}

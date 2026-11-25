@@ -7,6 +7,8 @@ const base = {
   role: "USER" as const,
   status: "ACTIVE" as const,
   emailVerifiedAt: new Date("2026-11-13T15:05:00Z"),
+  mustChangePassword: false,
+  passwordResetRequestedAt: null,
   cpf: "52998224725",
   registrationNumber: "123456",
   phone: "65999990001",

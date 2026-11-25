@@ -14,6 +14,7 @@ import { toShellUser } from "@/components/shell/shell-user";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getCurrentSession();
   if (!session) redirect("/login?next=/admin");
+  if (session.user.mustChangePassword) redirect("/trocar-senha");
   if (!isAdmin(session.user.role)) redirect("/painel");
   const badges = await getAdminNavBadges();
 

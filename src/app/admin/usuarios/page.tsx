@@ -3,6 +3,7 @@ import { listUsers } from "@/server/modules/users/user.service";
 import { listUsersQuerySchema } from "@/server/modules/users/user.schemas";
 import { toPublicUser } from "@/server/modules/users/user.dto";
 import { UserStatusBadge } from "@/components/users/user-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { USER_ROLE_LABEL, USER_STATUS_LABEL } from "@/components/users/labels";
 import { PageHeader } from "@/components/ui/page-header";
 import { FilterBar, FilterField, filterControlClass } from "@/components/ui/filter-bar";
@@ -114,7 +115,11 @@ export default async function AdminUsuariosPage({ searchParams }: Props) {
                   {user.isDriver && <Muted> · Condutor</Muted>}
                 </Td>
                 <Td>
-                  <UserStatusBadge status={user.status} />
+                  {user.passwordResetRequestedAt && user.status === "ACTIVE" ? (
+                    <Badge tone="warning">Pediu nova senha</Badge>
+                  ) : (
+                    <UserStatusBadge status={user.status} />
+                  )}
                 </Td>
                 <ChevronCell />
               </Tr>

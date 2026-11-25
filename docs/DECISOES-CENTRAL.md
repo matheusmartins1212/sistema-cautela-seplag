@@ -51,7 +51,13 @@ Depois, na área da central: cadastre os órgãos atendidos em **Órgãos**, hab
 Enquanto o setor não tiver as credenciais de SMTP, a plataforma não envia e-mail. A chave fica em `src/shared/features.ts` (`EMAIL_DELIVERY_ENABLED = false`) e controla:
 
 - **Cadastro:** não manda link de confirmação. A conta nasce "Aguardando liberação", cada administrador ativo recebe um aviso na plataforma e o menu Usuários mostra quantos cadastros esperam. A central libera em Usuários → pessoa → "Liberar acesso".
-- **Recuperação de senha:** "Esqueci minha senha" orienta procurar a SATGF; o pedido de link por e-mail responde 409. A tela de redefinição por link continua pronta para quando o e-mail voltar.
+- **Recuperação de senha:** "Esqueci minha senha" vira um pedido para a central (ver abaixo). A tela de redefinição por link continua pronta para quando o e-mail voltar.
 - **Textos:** aprovação e recusa dizem que o aviso vai "pela plataforma".
 
 Os e-mails de solicitação, aprovação e lembretes continuam sendo montados e registrados em `email_logs` com o provedor `console`, sem sair do sistema. Para religar: configurar o SMTP nas variáveis da Vercel, trocar a chave para `true` e publicar.
+
+## Senha provisória (2026-11-25)
+
+Quem esquece a senha pede uma nova em "Esqueci minha senha". O pedido avisa os administradores na plataforma, marca a pessoa com "Pediu nova senha" na lista de Usuários e soma no contador do menu. Na página da pessoa, a central clica em "Gerar senha provisória": o sistema cria uma senha aleatória (três blocos de quatro caracteres, sem letras ou números que se confundem), mostra uma única vez para ser repassada, encerra as sessões abertas da conta e registra a ação no histórico de quem gerou, sem guardar a senha.
+
+No primeiro acesso com a provisória, a pessoa cai em "Defina uma senha nova" e não consegue usar nenhuma tela ou API até trocar (as APIs respondem 403 `PASSWORD_CHANGE_REQUIRED`). A nova senha segue a regra de senha forte e não pode repetir a provisória. A central também pode gerar a provisória sem pedido, para qualquer conta ativa.

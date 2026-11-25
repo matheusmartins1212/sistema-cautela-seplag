@@ -9,6 +9,8 @@ interface Props {
   description?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Esconde o botão de voltar (ESC e clique fora continuam fechando). */
+  hideCancel?: boolean;
   tone?: "primary" | "danger";
   loading?: boolean;
   onConfirm: () => void;
@@ -25,6 +27,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirmar",
   cancelLabel = "Voltar",
+  hideCancel = false,
   tone = "primary",
   loading = false,
   onConfirm,
@@ -57,9 +60,11 @@ export function ConfirmDialog({
         <h2 className="text-base font-semibold text-institutional-900">{title}</h2>
         {description && <div className="mt-2 text-sm text-gray-600">{description}</div>}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel} disabled={loading}>
-            {cancelLabel}
-          </Button>
+          {!hideCancel && (
+            <Button variant="secondary" onClick={onCancel} disabled={loading}>
+              {cancelLabel}
+            </Button>
+          )}
           <Button variant={tone} onClick={onConfirm} loading={loading}>
             {confirmLabel}
           </Button>

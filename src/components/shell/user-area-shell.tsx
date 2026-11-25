@@ -19,6 +19,8 @@ export async function UserAreaShell({
 }) {
   const session = await getCurrentSession();
   if (!session) redirect(`/login?next=${loginNext}`);
+  // Senha provisória: nada da área funciona antes da troca obrigatória.
+  if (session.user.mustChangePassword) redirect("/trocar-senha");
   if (isAdmin(session.user.role)) {
     const pathname = (await headers()).get("x-pathname");
     redirect(adminEquivalentPath(pathname));

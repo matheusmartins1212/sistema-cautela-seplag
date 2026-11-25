@@ -4,10 +4,11 @@ import type { NavBadgeKey } from "@/components/shell/nav";
 
 /**
  * Pendências da central mostradas no menu: pedidos a analisar, checklists
- * aguardando revisão, avarias em aberto e cadastros aguardando liberação.
+ * aguardando revisão, avarias em aberto e contas que pedem ação (cadastros a
+ * liberar e pedidos de nova senha).
  */
 export async function getAdminNavBadges(): Promise<Partial<Record<NavBadgeKey, number>>> {
-  const [pendingRequests, checklistsToReview, openDamages, pendingAccounts] = await Promise.all([
+  const [pendingRequests, checklistsToReview, openDamages, accountsAttention] = await Promise.all([
     prisma.vehicleRequest.count({ where: { status: RequestStatus.PENDENTE_ANALISE } }),
     prisma.checklist.count({
       where: { status: { in: [ChecklistStatus.ENVIADO, ChecklistStatus.EM_ANALISE] } },
@@ -15,7 +16,14 @@ export async function getAdminNavBadges(): Promise<Partial<Record<NavBadgeKey, n
     prisma.damageReport.count({
       where: { status: { in: [DamageStatus.ABERTA, DamageStatus.EM_ANALISE] } },
     }),
-    prisma.user.count({ where: { status: UserStatus.PENDING_EMAIL_VERIFICATION } }),
+    prisma.user.count({
+      where: {
+        OR: [
+          { status: UserStatus.PENDING_EMAIL_VERIFICATION },
+          { status: UserStatus.ACTIVE, passwordResetRequestedAt: { not: null } },
+        ],
+      },
+    }),
   ]);
-  return { pendingRequests, checklistsToReview, openDamages, pendingAccounts };
+  return { pendingRequests, checklistsToReview, openDamages, accountsAttention };
 }

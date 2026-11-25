@@ -22,6 +22,10 @@ export interface PublicUser {
   role: UserRole;
   status: UserStatus;
   emailVerifiedAt: string | null;
+  /** Senha provisória ativa: o próximo acesso exige a troca. */
+  mustChangePassword: boolean;
+  /** Pedido de nova senha em aberto ("Esqueci minha senha"). */
+  passwordResetRequestedAt: string | null;
   createdAt: string;
 }
 
@@ -42,6 +46,8 @@ export function toPublicUser(user: Omit<User, "passwordHash">): PublicUser {
     role: user.role,
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+    mustChangePassword: user.mustChangePassword,
+    passwordResetRequestedAt: user.passwordResetRequestedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
   };
 }

@@ -51,6 +51,8 @@ const actor = {
     status: "ACTIVE" as const,
     passwordHash: "h",
     emailVerifiedAt: new Date(),
+    mustChangePassword: false,
+    passwordResetRequestedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

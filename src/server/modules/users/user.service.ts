@@ -5,6 +5,8 @@ import { recordAudit } from "@/server/lib/audit";
 import type { RequestContext } from "@/server/lib/request-context";
 import { isSuperAdmin } from "@/server/modules/auth/rbac";
 import { revokeAllSessions, type SessionUser } from "@/server/modules/auth/session";
+import { hashPassword } from "@/server/lib/password";
+import { generateTemporaryPassword } from "@/server/lib/temporary-password";
 import { CANCELLABLE_CAUTION_STATUSES } from "@/server/modules/cautions/caution.service";
 import type {
   ChangeUserRoleInput,
@@ -119,6 +121,47 @@ export async function setUserStatus(
   });
 
   return updated;
+}
+
+/**
+ * Senha provisória gerada pela central (pedido de "Esqueci minha senha" ou a
+ * critério do admin). A senha atual deixa de valer, as sessões abertas caem e
+ * o próximo acesso exige a troca. A senha volta uma única vez, para o admin
+ * repassar; o banco guarda só o hash.
+ */
+export async function setTemporaryPassword(
+  id: string,
+  actor: SessionUser,
+  context?: RequestContext,
+): Promise<{ temporaryPassword: string }> {
+  const target = await getUserByIdAdmin(id);
+  ensureCanManage(target, actor);
+  if (target.status !== UserStatus.ACTIVE) {
+    throw Errors.conflict("Só é possível gerar senha provisória para contas ativas.");
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  await prisma.user.update({
+    where: { id },
+    data: {
+      passwordHash: await hashPassword(temporaryPassword),
+      mustChangePassword: true,
+      passwordResetRequestedAt: null,
+    },
+  });
+  await revokeAllSessions(id);
+
+  await recordAudit({
+    action: "PASSWORD_TEMPORARY_SET",
+    actorUserId: actor.user.id,
+    actorRole: actor.user.role,
+    entityType: "User",
+    entityId: id,
+    metadata: { requested: target.passwordResetRequestedAt !== null },
+    context,
+  });
+
+  return { temporaryPassword };
 }
 
 export async function changeUserRole(

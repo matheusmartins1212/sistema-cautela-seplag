@@ -148,20 +148,29 @@ export async function registerUser(
  * ativo recebe um aviso na plataforma com link para a conta.
  */
 async function notifyAdminsOfNewAccount(user: User): Promise<void> {
+  const agency = user.agency ? ` (${user.agency.split(" - ")[0]})` : "";
+  await notifyAdminsAbout(
+    user.id,
+    "Novo cadastro aguardando liberação",
+    `${user.fullName}${agency} criou uma conta e aguarda a liberação do acesso.`,
+  );
+}
+
+/** Aviso na plataforma para cada administrador ativo, com link para a conta. */
+async function notifyAdminsAbout(userId: string, title: string, message: string): Promise<void> {
   const admins = await prisma.user.findMany({
     where: { role: { in: ["ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
     select: { id: true },
   });
-  const agency = user.agency ? ` (${user.agency.split(" - ")[0]})` : "";
   await Promise.all(
     admins.map((a) =>
       createNotification({
         userId: a.id,
         type: "GENERAL",
-        title: "Novo cadastro aguardando liberação",
-        message: `${user.fullName}${agency} criou uma conta e aguarda a liberação do acesso.`,
+        title,
+        message,
         relatedEntityType: "User",
-        relatedEntityId: user.id,
+        relatedEntityId: userId,
       }),
     ),
   );
@@ -334,6 +343,75 @@ export async function logout(context?: RequestContext): Promise<void> {
  * Solicita reset de senha. Resposta SEMPRE genérica (anti-enumeração):
  * o chamador não consegue saber se o e-mail existe.
  */
+/**
+ * "Esqueci minha senha" sem e-mail: o pedido vai para a central, que gera uma
+ * senha provisória. Silencioso para e-mail desconhecido (anti-enumeração) e
+ * sem avisos repetidos enquanto o pedido estiver em aberto.
+ */
+export async function requestPasswordResetFromCentral(
+  email: string,
+  context?: RequestContext,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.status !== "ACTIVE" || user.deletedAt !== null) {
+    return;
+  }
+  const alreadyPending = user.passwordResetRequestedAt !== null;
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordResetRequestedAt: new Date() },
+  });
+  await recordAudit({
+    action: "PASSWORD_RESET_REQUESTED",
+    actorUserId: user.id,
+    actorRole: user.role,
+    entityType: "User",
+    entityId: user.id,
+    metadata: { channel: "central" },
+    context,
+  });
+  if (!alreadyPending) {
+    await notifyAdminsAbout(
+      user.id,
+      "Pedido de nova senha",
+      `${user.fullName} esqueceu a senha e pediu uma nova à central.`,
+    );
+  }
+}
+
+/**
+ * Troca obrigatória depois da senha provisória. Só vale enquanto a troca
+ * estiver pendente; a nova senha não pode ser a provisória.
+ */
+export async function changeTemporaryPassword(
+  userId: string,
+  newPassword: string,
+  context?: RequestContext,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.mustChangePassword) {
+    throw Errors.conflict("Não há troca de senha pendente.");
+  }
+  if (await verifyPassword(user.passwordHash, newPassword)) {
+    throw Errors.validation("Escolha uma senha diferente da provisória.", {
+      password: ["Escolha uma senha diferente da provisória."],
+    });
+  }
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(newPassword), mustChangePassword: false },
+  });
+  await recordAudit({
+    action: "PASSWORD_RESET_COMPLETED",
+    actorUserId: user.id,
+    actorRole: user.role,
+    entityType: "User",
+    entityId: user.id,
+    metadata: { via: "temporary" },
+    context,
+  });
+}
+
 export async function forgotPassword(email: string, context?: RequestContext): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || user.status !== "ACTIVE") {

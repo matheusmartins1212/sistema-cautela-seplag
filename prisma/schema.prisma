@@ -204,6 +204,7 @@ enum AuditAction {
   EMAIL_CONFIRMED
   PASSWORD_RESET_REQUESTED
   PASSWORD_RESET_COMPLETED
+  PASSWORD_TEMPORARY_SET
   REQUEST_CREATED
   REQUEST_APPROVED
   REQUEST_REJECTED
@@ -249,6 +250,10 @@ model User {
   status                 UserStatus @default(PENDING_EMAIL_VERIFICATION)
   passwordHash           String
   emailVerifiedAt        DateTime?
+  // Senha provisória gerada pela central: no próximo acesso a troca é obrigatória.
+  mustChangePassword       Boolean   @default(false)
+  // Pedido de nova senha feito em "Esqueci minha senha" (sem e-mail, a central atende).
+  passwordResetRequestedAt DateTime?
   // Perfil de condutor da central (habilitado pelo administrador).
   isDriver               Boolean    @default(false)
   driverLicenseCategory  String? // categoria da CNH (ex.: B, D, AB)

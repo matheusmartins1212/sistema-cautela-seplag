@@ -16,6 +16,7 @@ export type AppErrorCode =
   | "INVALID_CREDENTIALS"
   | "INVALID_OR_EXPIRED_TOKEN"
   | "EMAIL_NOT_VERIFIED"
+  | "PASSWORD_CHANGE_REQUIRED"
   | "INTERNAL_ERROR";
 
 const STATUS_BY_CODE: Record<AppErrorCode, number> = {
@@ -28,6 +29,7 @@ const STATUS_BY_CODE: Record<AppErrorCode, number> = {
   INVALID_CREDENTIALS: 401,
   INVALID_OR_EXPIRED_TOKEN: 400,
   EMAIL_NOT_VERIFIED: 403,
+  PASSWORD_CHANGE_REQUIRED: 403,
   INTERNAL_ERROR: 500,
 };
 
@@ -68,6 +70,8 @@ export const Errors = {
     new AppError("INVALID_OR_EXPIRED_TOKEN", message),
   emailNotVerified: (message = "Confirme seu e-mail antes de acessar a plataforma.") =>
     new AppError("EMAIL_NOT_VERIFIED", message),
+  passwordChangeRequired: (message = "Troque a senha provisória antes de continuar.") =>
+    new AppError("PASSWORD_CHANGE_REQUIRED", message),
   internal: (message = "Não foi possível processar a solicitação.") =>
     new AppError("INTERNAL_ERROR", message),
 };

@@ -24,27 +24,9 @@ export default function ForgotPasswordPage() {
     setMessage(
       result.ok
         ? result.data.message
-        : "Se houver uma conta para este e-mail, enviaremos instruções.",
-    );
-  }
-
-  // Sem envio de e-mail, a redefinição é feita pela central.
-  if (!EMAIL_DELIVERY_ENABLED) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-institutional-900">Recuperar senha</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            A redefinição de senha é feita pela SATGF. Procure a central informando seu nome e
-            matrícula.
-          </p>
-        </div>
-        <p className="text-center text-sm text-gray-600">
-          <Link href="/login" className="font-medium text-institutional-700 hover:underline">
-            Voltar ao login
-          </Link>
-        </p>
-      </div>
+        : EMAIL_DELIVERY_ENABLED
+          ? "Se houver uma conta para este e-mail, enviaremos instruções."
+          : "Pedido enviado para a SATGF. A central vai gerar uma senha provisória e repassar a você.",
     );
   }
 
@@ -53,7 +35,9 @@ export default function ForgotPasswordPage() {
       <div>
         <h1 className="text-xl font-bold text-institutional-900">Recuperar senha</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Informe seu e-mail institucional para receber o link de redefinição.
+          {EMAIL_DELIVERY_ENABLED
+            ? "Informe seu e-mail institucional para receber o link de redefinição."
+            : "Informe seu e-mail institucional. O pedido vai para a SATGF, que gera uma senha provisória e repassa a você. No primeiro acesso com ela, você define uma senha nova."}
         </p>
       </div>
 
@@ -69,7 +53,7 @@ export default function ForgotPasswordPage() {
             required
           />
           <Button type="submit" loading={loading} className="w-full">
-            Enviar instruções
+            {EMAIL_DELIVERY_ENABLED ? "Enviar instruções" : "Pedir nova senha"}
           </Button>
         </form>
       )}

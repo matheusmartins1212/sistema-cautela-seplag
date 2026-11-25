@@ -63,6 +63,8 @@ const baseActor = {
     status: "ACTIVE" as const,
     passwordHash: "h",
     emailVerifiedAt: new Date(),
+    mustChangePassword: false,
+    passwordResetRequestedAt: null,
     agency: null,
     isDriver: false,
     driverLicenseCategory: null,

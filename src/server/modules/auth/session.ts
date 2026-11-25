@@ -27,6 +27,8 @@ const SESSION_USER_SELECT = {
   role: true,
   status: true,
   emailVerifiedAt: true,
+  mustChangePassword: true,
+  passwordResetRequestedAt: true,
   isDriver: true,
   driverLicenseCategory: true,
   driverLicenseExpiresAt: true,
