@@ -9,7 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiPost } from "@/lib/api-client";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 import { VEHICLE_CATEGORY_LABEL } from "@/components/vehicles/labels";
+
+/** Por onde o aviso chega, conforme o envio de e-mail esteja ligado. */
+const NOTICE_CHANNEL = EMAIL_DELIVERY_ENABLED ? "por e-mail e pela plataforma" : "pela plataforma";
 
 interface VehicleOption {
   id: string;
@@ -286,13 +290,12 @@ export function AdminDecisionPanel({
               {noDriver ? (
                 <>
                   fica com o próprio solicitante, que retira, dirige e preenche os checklists. Ele
-                  será avisado por e-mail e pela plataforma.
+                  será avisado {NOTICE_CHANNEL}.
                 </>
               ) : (
                 <>
                   sai com o condutor <strong>{selectedDriver?.fullName ?? ""}</strong>. A viagem
-                  será criada e o solicitante e o condutor serão avisados por e-mail e pela
-                  plataforma.
+                  será criada e o solicitante e o condutor serão avisados {NOTICE_CHANNEL}.
                 </>
               )}
             </>
@@ -317,7 +320,7 @@ export function AdminDecisionPanel({
           onChange={(e) => setRejectionReason(e.target.value)}
           rows={3}
           required
-          hint="Será informado ao solicitante por e-mail e pela plataforma, e exibido no detalhe."
+          hint={`Será informado ao solicitante ${NOTICE_CHANNEL} e exibido no detalhe.`}
         />
         <Textarea
           label="Observação interna (opcional)"
@@ -338,7 +341,7 @@ export function AdminDecisionPanel({
         <ConfirmDialog
           open={confirming}
           title="Confirmar recusa?"
-          description="A solicitação será recusada e o solicitante avisado por e-mail e pela plataforma com o motivo informado."
+          description={`A solicitação será recusada e o solicitante avisado ${NOTICE_CHANNEL}, com o motivo informado.`}
           confirmLabel="Recusar"
           tone="danger"
           loading={loading}

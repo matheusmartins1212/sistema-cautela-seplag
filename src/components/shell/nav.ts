@@ -14,7 +14,11 @@ export type NavIconName =
   | "plus";
 
 /** Contadores de pendência mostrados ao lado de alguns itens. */
-export type NavBadgeKey = "pendingRequests" | "checklistsToReview" | "openDamages";
+export type NavBadgeKey =
+  | "pendingRequests"
+  | "checklistsToReview"
+  | "openDamages"
+  | "pendingAccounts";
 
 export interface NavItem {
   href: string;
@@ -114,7 +118,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     title: "Gestão",
     items: [
       { href: "/admin/orgaos", label: "Órgãos", icon: "building" },
-      { href: "/admin/usuarios", label: "Usuários", icon: "users" },
+      { href: "/admin/usuarios", label: "Usuários", icon: "users", badge: "pendingAccounts" },
       { href: "/admin/relatorios", label: "Relatórios", icon: "chart" },
     ],
   },

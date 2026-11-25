@@ -6,6 +6,7 @@ import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { apiPost } from "@/lib/api-client";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,26 @@ export default function ForgotPasswordPage() {
       result.ok
         ? result.data.message
         : "Se houver uma conta para este e-mail, enviaremos instruções.",
+    );
+  }
+
+  // Sem envio de e-mail, a redefinição é feita pela central.
+  if (!EMAIL_DELIVERY_ENABLED) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-bold text-institutional-900">Recuperar senha</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            A redefinição de senha é feita pela SATGF. Procure a central informando seu nome e
+            matrícula.
+          </p>
+        </div>
+        <p className="text-center text-sm text-gray-600">
+          <Link href="/login" className="font-medium text-institutional-700 hover:underline">
+            Voltar ao login
+          </Link>
+        </p>
+      </div>
     );
   }
 

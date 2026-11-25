@@ -2,10 +2,16 @@ import { handleRoute, jsonOk, parseJsonBody, enforceRateLimit } from "@/server/l
 import { getRequestContext } from "@/server/lib/request-context";
 import { resendConfirmationSchema } from "@/server/modules/auth/auth.schemas";
 import { resendConfirmation } from "@/server/modules/auth/auth.service";
+import { Errors } from "@/server/lib/errors";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 
 export const runtime = "nodejs";
 
 export const POST = handleRoute(async (req) => {
+  // Sem envio de e-mail, o cadastro é liberado pela central.
+  if (!EMAIL_DELIVERY_ENABLED) {
+    throw Errors.conflict("Seu cadastro é liberado pela SATGF. Aguarde a aprovação.");
+  }
   const context = getRequestContext(req.headers);
   const { email } = await parseJsonBody(req, resendConfirmationSchema);
 

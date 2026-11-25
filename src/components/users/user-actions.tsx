@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { apiPost } from "@/lib/api-client";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 import { USER_ROLE_LABEL } from "./labels";
 
 interface Props {
@@ -66,15 +67,16 @@ export function UserActions({ userId, currentStatus, currentRole, canChangeRole,
         {currentStatus === "PENDING_EMAIL_VERIFICATION" ? (
           <div className="space-y-2">
             <Alert tone="info">
-              Usuário aguardando confirmação de e-mail. Se a mensagem não chegou, você pode
-              confirmar o cadastro manualmente (registrado em auditoria).
+              {EMAIL_DELIVERY_ENABLED
+                ? "Usuário aguardando confirmação de e-mail. Se a mensagem não chegou, você pode confirmar o cadastro manualmente (registrado em auditoria)."
+                : "Cadastro aguardando liberação. Confira os dados ao lado e libere o acesso (registrado em auditoria)."}
             </Alert>
             <Button
               type="button"
               loading={loading === "ACTIVE"}
               onClick={() => setStatus("ACTIVE")}
             >
-              Confirmar cadastro e liberar acesso
+              Liberar acesso
             </Button>
           </div>
         ) : currentStatus === "ACTIVE" ? (

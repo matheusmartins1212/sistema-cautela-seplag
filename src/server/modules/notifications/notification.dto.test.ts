@@ -41,6 +41,12 @@ describe("toPublicNotification", () => {
     expect(toPublicNotification(n, "admin").href).toBe("/admin/cautelas/c1");
   });
 
+  it("novo cadastro: leva o admin à conta; servidor não tem essa tela", () => {
+    const n = makeNotification({ relatedEntityType: "User", relatedEntityId: "u9" });
+    expect(toPublicNotification(n, "admin").href).toBe("/admin/usuarios/u9");
+    expect(toPublicNotification(n, "user").href).toBeNull();
+  });
+
   it("href é nulo para entidade desconhecida ou ausente", () => {
     expect(
       toPublicNotification(makeNotification({ relatedEntityType: "Foo", relatedEntityId: "x" }))

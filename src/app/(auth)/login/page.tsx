@@ -8,6 +8,7 @@ import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { apiPost } from "@/lib/api-client";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 
 function LoginForm() {
   const router = useRouter();
@@ -58,8 +59,9 @@ function LoginForm() {
       {error && <Alert tone="error">{error}</Alert>}
       {needsConfirmation && (
         <Alert tone="warning">
-          Sua conta ainda não foi confirmada. Verifique seu e-mail institucional ou peça à SATGF
-          para liberar seu acesso.
+          {EMAIL_DELIVERY_ENABLED
+            ? "Sua conta ainda não foi confirmada. Verifique seu e-mail institucional ou peça à SATGF para liberar seu acesso."
+            : "Seu cadastro está aguardando a liberação da SATGF. Assim que for aprovado, você já consegue entrar."}
         </Alert>
       )}
 

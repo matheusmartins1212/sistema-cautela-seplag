@@ -45,3 +45,13 @@ Depois, na área da central: cadastre os órgãos atendidos em **Órgãos**, hab
 - **Condutores terceirizados** sem e-mail institucional não conseguem se cadastrar hoje. Se for o caso, falta um cadastro de condutor feito pela própria central.
 - **Aprovação da chefia do órgão** antes de chegar na central: não existe; hoje o pedido vai direto para a central.
 - **Rateio ou prestação de contas por órgão**: o relatório já conta viagens por órgão; quilometragem e custo por órgão ainda não.
+
+## E-mail desligado (2026-11-25)
+
+Enquanto o setor não tiver as credenciais de SMTP, a plataforma não envia e-mail. A chave fica em `src/shared/features.ts` (`EMAIL_DELIVERY_ENABLED = false`) e controla:
+
+- **Cadastro:** não manda link de confirmação. A conta nasce "Aguardando liberação", cada administrador ativo recebe um aviso na plataforma e o menu Usuários mostra quantos cadastros esperam. A central libera em Usuários → pessoa → "Liberar acesso".
+- **Recuperação de senha:** "Esqueci minha senha" orienta procurar a SATGF; o pedido de link por e-mail responde 409. A tela de redefinição por link continua pronta para quando o e-mail voltar.
+- **Textos:** aprovação e recusa dizem que o aviso vai "pela plataforma".
+
+Os e-mails de solicitação, aprovação e lembretes continuam sendo montados e registrados em `email_logs` com o provedor `console`, sem sair do sistema. Para religar: configurar o SMTP nas variáveis da Vercel, trocar a chave para `true` e publicar.

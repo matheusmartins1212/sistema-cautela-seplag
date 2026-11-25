@@ -8,6 +8,7 @@ import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { apiGet, apiPost } from "@/lib/api-client";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 
 type FieldErrors = Record<string, string[]>;
 
@@ -57,11 +58,13 @@ export default function RegisterPage() {
   if (done) {
     return (
       <div className="space-y-4">
-        <h1 className="text-xl font-bold text-institutional-900">Confirme seu e-mail</h1>
+        <h1 className="text-xl font-bold text-institutional-900">
+          {EMAIL_DELIVERY_ENABLED ? "Confirme seu e-mail" : "Cadastro enviado"}
+        </h1>
         <Alert tone="success">
-          Cadastro recebido. Enviamos um e-mail de confirmação para o endereço institucional
-          informado. Sua conta será ativada após a confirmação. Se o e-mail não chegar, a SATGF pode
-          liberar seu acesso.
+          {EMAIL_DELIVERY_ENABLED
+            ? "Cadastro recebido. Enviamos um e-mail de confirmação para o endereço institucional informado. Sua conta será ativada após a confirmação. Se o e-mail não chegar, a SATGF pode liberar seu acesso."
+            : "Seu cadastro foi enviado para a SATGF. Assim que ele for aprovado, você já consegue entrar com seu e-mail e senha."}
         </Alert>
         <Link href="/login" className="text-sm font-medium text-institutional-700 hover:underline">
           Voltar para o login

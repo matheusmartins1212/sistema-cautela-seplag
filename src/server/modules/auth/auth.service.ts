@@ -16,6 +16,8 @@ import {
   revokeAllSessions,
 } from "@/server/modules/auth/session";
 import { sendTransactionalEmail } from "@/server/modules/email/email.service";
+import { createNotification } from "@/server/modules/notifications/notifications.service";
+import { EMAIL_DELIVERY_ENABLED } from "@/shared/features";
 import {
   buildEmailConfirmation,
   buildPasswordReset,
@@ -123,18 +125,46 @@ export async function registerUser(
     context,
   });
 
-  // Link de confirmação (contém o token cru — entregue apenas via e-mail).
-  const confirmationUrl = `${env.APP_BASE_URL}/verificar-email?token=${rawToken}`;
-  await sendTransactionalEmail(
-    buildEmailConfirmation({
-      to: user.email,
-      fullName: user.fullName,
-      confirmationUrl,
-      expiresInLabel: durationLabel(env.EMAIL_CONFIRMATION_TOKEN_EXPIRES_IN),
-    }),
-  );
+  if (EMAIL_DELIVERY_ENABLED) {
+    // Link de confirmação (contém o token cru — entregue apenas via e-mail).
+    const confirmationUrl = `${env.APP_BASE_URL}/verificar-email?token=${rawToken}`;
+    await sendTransactionalEmail(
+      buildEmailConfirmation({
+        to: user.email,
+        fullName: user.fullName,
+        confirmationUrl,
+        expiresInLabel: durationLabel(env.EMAIL_CONFIRMATION_TOKEN_EXPIRES_IN),
+      }),
+    );
+  }
+
+  await notifyAdminsOfNewAccount(user);
 
   return { userId: user.id };
+}
+
+/**
+ * Novo cadastro: a liberação é feita pela central, então cada administrador
+ * ativo recebe um aviso na plataforma com link para a conta.
+ */
+async function notifyAdminsOfNewAccount(user: User): Promise<void> {
+  const admins = await prisma.user.findMany({
+    where: { role: { in: ["ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
+    select: { id: true },
+  });
+  const agency = user.agency ? ` (${user.agency.split(" - ")[0]})` : "";
+  await Promise.all(
+    admins.map((a) =>
+      createNotification({
+        userId: a.id,
+        type: "GENERAL",
+        title: "Novo cadastro aguardando liberação",
+        message: `${user.fullName}${agency} criou uma conta e aguarda a liberação do acesso.`,
+        relatedEntityType: "User",
+        relatedEntityId: user.id,
+      }),
+    ),
+  );
 }
 
 // ----------------------------------------------------------------------------

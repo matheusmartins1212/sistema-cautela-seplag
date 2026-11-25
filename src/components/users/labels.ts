@@ -7,7 +7,7 @@ export const USER_ROLE_LABEL: Record<UserRole, string> = {
 };
 
 export const USER_STATUS_LABEL: Record<UserStatus, string> = {
-  PENDING_EMAIL_VERIFICATION: "Aguardando confirmação",
+  PENDING_EMAIL_VERIFICATION: "Aguardando liberação",
   ACTIVE: "Ativo",
   BLOCKED: "Bloqueado",
   INACTIVE: "Inativo",

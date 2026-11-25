@@ -29,6 +29,9 @@ function resolveHref(
       return `${base}/solicitacoes/${entityId}`;
     case "Caution":
       return `${base}/cautelas/${entityId}`;
+    case "User":
+      // Contas só têm tela no painel administrativo.
+      return audience === "admin" ? `/admin/usuarios/${entityId}` : null;
     default:
       return null;
   }
