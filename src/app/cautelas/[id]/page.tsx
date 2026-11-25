@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { getCautionById } from "@/server/modules/cautions/caution.service";
@@ -6,22 +5,27 @@ import { toPublicCaution } from "@/server/modules/cautions/caution.dto";
 import { Errors } from "@/server/lib/errors";
 import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
 import { ChecklistActions } from "@/components/checklists/checklist-actions";
-import { formatInstantBr } from "@/shared/time";
 import { responsibleUserId } from "@/server/modules/cautions/responsible";
+import {
+  DetailCard,
+  DetailHeader,
+  DetailLayout,
+  Fact,
+  Facts,
+  RelatedItem,
+  RelatedList,
+} from "@/components/ui/detail";
+import { modalityLabel, passengersText } from "@/components/requests/trip-text";
+import {
+  currentYearCuiaba,
+  formatInstantDateTime,
+  formatWallClockPeriod,
+  shortCode,
+} from "@/shared/format";
 import { formatPhoneBr } from "@/shared/phone";
 
 interface Props {
   params: Promise<{ id: string }>;
-}
-
-function formatDateTimeBr(iso: string): string {
-  const d = new Date(iso);
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const year = d.getUTCFullYear();
-  const hours = String(d.getUTCHours()).padStart(2, "0");
-  const minutes = String(d.getUTCMinutes()).padStart(2, "0");
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 export default async function ViagemDetalhePage({ params }: Props) {
@@ -48,125 +52,105 @@ export default async function ViagemDetalhePage({ params }: Props) {
     includeDriver: true,
     includeVehicle: true,
   });
+  const year = currentYearCuiaba();
   // Quem conduz preenche os checklists; o solicitante apenas acompanha.
   const isResponsible = responsibleUserId(cautionRaw) === session.user.id;
   const isRequester = cautionRaw.userId === session.user.id;
+  const isDriver = c.driver?.id === session.user.id;
+
+  const passengers = passengersText(
+    c.request?.passengerNames ?? null,
+    c.request?.passengerCount ?? null,
+  );
+  const contact = c.request?.contactPhone ?? c.user?.phone ?? null;
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={isResponsible ? "/cautelas" : "/solicitacoes"}
-          className="text-sm text-institutional-700 hover:underline"
-        >
-          {isResponsible ? "← Minhas viagens" : "← Minhas solicitações"}
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-xl font-bold text-institutional-900">{c.publicCode}</h1>
-          <CautionStatusBadge status={c.status} />
-        </div>
-      </div>
+      <DetailHeader
+        backHref={isResponsible ? "/cautelas" : "/solicitacoes"}
+        backLabel={isResponsible ? "Minhas viagens" : "Minhas solicitações"}
+        title={c.request?.destination ?? "Viagem"}
+        code={shortCode(c.publicCode)}
+        codeTitle={c.publicCode}
+        badges={<CautionStatusBadge status={c.status} />}
+        meta={`${formatWallClockPeriod(c.plannedWithdrawalAt, c.plannedReturnAt, year)} · ${modalityLabel(Boolean(c.driver), isRequester)}`}
+        actions={isResponsible && <ChecklistActions cautionId={c.id} status={c.status} />}
+      />
 
-      {isResponsible && <ChecklistActions cautionId={c.id} status={c.status} />}
-
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">Viagem</h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Saída prevista" value={formatDateTimeBr(c.plannedWithdrawalAt)} />
-          <Row label="Retorno previsto" value={formatDateTimeBr(c.plannedReturnAt)} />
-          {c.request?.origin && <Row label="Local de saída" value={c.request.origin} />}
-          {c.request && <Row label="Destino" value={c.request.destination} />}
-          {c.request?.passengerCount != null && (
-            <Row label="Passageiros" value={String(c.request.passengerCount)} />
-          )}
-          {c.request && <Row label="Finalidade" value={c.request.reason} />}
-          {c.actualWithdrawalAt && (
-            <Row label="Saída efetiva" value={formatInstantBr(c.actualWithdrawalAt)} />
-          )}
-          {c.actualReturnAt && (
-            <Row label="Retorno efetivo" value={formatInstantBr(c.actualReturnAt)} />
-          )}
-          {c.request?.passengerNames && (
-            <div className="sm:col-span-2">
-              <dt className="text-xs uppercase text-gray-500">Nomes dos passageiros</dt>
-              <dd className="mt-0.5 whitespace-pre-line font-medium text-gray-900">
-                {c.request.passengerNames}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </section>
-
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Pessoas
-        </h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          {c.user && (
-            <Row
-              label="Solicitante"
-              value={
-                c.request?.requestingAgency
-                  ? `${c.user.fullName} (${c.request.requestingAgency})`
-                  : c.user.fullName
-              }
-            />
-          )}
-          <Row
-            label="Contato no dia"
-            value={formatPhoneBr(c.request?.contactPhone ?? c.user?.phone) || "—"}
-          />
-          <Row
-            label="Condutor"
-            value={
-              c.driver
-                ? `${c.driver.fullName} · ${formatPhoneBr(c.driver.phone)}`
-                : "O próprio solicitante dirige"
-            }
-          />
-        </dl>
-      </section>
-
-      {c.vehicle && (
-        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Veículo
-          </h2>
-          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <Row label="Marca / Modelo" value={`${c.vehicle.brand} ${c.vehicle.model}`} />
-            <Row label="Placa" value={c.vehicle.plateFormatted} />
-          </dl>
-        </section>
-      )}
-
-      {c.request && isRequester && (
-        <div>
-          <Link
-            href={`/solicitacoes/${c.request.id}`}
-            className="text-sm font-medium text-institutional-700 hover:underline"
-          >
-            Ver solicitação {c.request.publicCode} →
-          </Link>
-        </div>
-      )}
-
-      {c.finalNotes && (
-        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Observação
-          </h2>
-          <p className="text-sm text-gray-700">{c.finalNotes}</p>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase text-gray-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-gray-900">{value}</dd>
+      <DetailLayout
+        main={
+          <DetailCard title="Viagem">
+            <Facts>
+              {c.actualWithdrawalAt && (
+                <>
+                  <Fact label="Saída efetiva">
+                    {formatInstantDateTime(c.actualWithdrawalAt, year)}
+                  </Fact>
+                  <Fact label="Retorno efetivo">
+                    {c.actualReturnAt
+                      ? formatInstantDateTime(c.actualReturnAt, year)
+                      : "Ainda em viagem"}
+                  </Fact>
+                </>
+              )}
+              {c.request?.origin && <Fact label="Local de saída">{c.request.origin}</Fact>}
+              {c.request?.requestingAgency && (
+                <Fact label="Órgão solicitante">{c.request.requestingAgency}</Fact>
+              )}
+              {passengers && <Fact label="Passageiros">{passengers}</Fact>}
+              {c.request && (
+                <Fact label="Finalidade" wide>
+                  {c.request.reason}
+                </Fact>
+              )}
+              {c.finalNotes && (
+                <Fact label="Observação de encerramento" wide>
+                  {c.finalNotes}
+                </Fact>
+              )}
+            </Facts>
+          </DetailCard>
+        }
+        aside={
+          <DetailCard title="Envolvidos">
+            <RelatedList>
+              {c.user && !isRequester && (
+                <RelatedItem
+                  label="Solicitante"
+                  title={c.user.fullName}
+                  detail={contact ? `Contato no dia: ${formatPhoneBr(contact)}` : undefined}
+                />
+              )}
+              {c.driver ? (
+                <RelatedItem
+                  label="Condutor"
+                  title={isDriver ? "Você" : c.driver.fullName}
+                  detail={isDriver ? undefined : formatPhoneBr(c.driver.phone)}
+                />
+              ) : (
+                <RelatedItem
+                  label="Quem dirige"
+                  title={isRequester ? "Você" : "O próprio solicitante"}
+                />
+              )}
+              {c.vehicle && (
+                <RelatedItem
+                  label="Veículo"
+                  title={`${c.vehicle.brand} ${c.vehicle.model}`}
+                  detail={<span className="font-mono">{c.vehicle.plateFormatted}</span>}
+                />
+              )}
+              {c.request && isRequester && (
+                <RelatedItem
+                  label="Solicitação"
+                  title={<span className="font-mono">{shortCode(c.request.publicCode)}</span>}
+                  href={`/solicitacoes/${c.request.id}`}
+                />
+              )}
+            </RelatedList>
+          </DetailCard>
+        }
+      />
     </div>
   );
 }

@@ -17,6 +17,8 @@ type Mode = "create" | "edit";
 interface Props {
   mode: Mode;
   initial?: PublicVehicle;
+  /** Para onde o "Cancelar" leva; sem isso, volta à tela anterior. */
+  cancelHref?: string;
 }
 
 interface ApiResponse {
@@ -36,7 +38,7 @@ async function patch(path: string, body: unknown) {
     | { ok: false; error: { code: string; message: string; fieldErrors?: FieldErrors } };
 }
 
-export function VehicleForm({ mode, initial }: Props) {
+export function VehicleForm({ mode, initial, cancelHref }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +196,12 @@ export function VehicleForm({ mode, initial }: Props) {
       />
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <Button type="button" variant="secondary" onClick={() => router.back()} disabled={loading}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => (cancelHref ? router.push(cancelHref) : router.back())}
+          disabled={loading}
+        >
           Cancelar
         </Button>
         <Button type="submit" loading={loading}>

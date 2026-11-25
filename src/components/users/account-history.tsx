@@ -65,9 +65,9 @@ export async function AccountHistory({
       id="historico"
       className="scroll-mt-6 rounded-card border border-gray-200 bg-white shadow-card"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3.5">
         <div>
-          <h2 className="text-sm font-semibold text-gray-700">Histórico de ações</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Histórico de ações</h2>
           <p className="mt-0.5 text-xs text-gray-500">
             O que esta conta fez no sistema. Os registros não podem ser editados nem apagados.
           </p>

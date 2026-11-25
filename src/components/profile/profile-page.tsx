@@ -16,12 +16,12 @@ function initials(fullName: string): string {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="border-t border-gray-100 px-6 py-4 first:border-t-0 sm:[&:nth-child(2)]:border-t-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</dt>
+      <dt className="text-xs text-gray-500">{label}</dt>
       <dd
         className={
           value
-            ? "mt-1 text-sm text-gray-900 [overflow-wrap:anywhere]"
-            : "mt-1 text-sm italic text-gray-400"
+            ? "mt-0.5 text-sm font-medium text-gray-900 [overflow-wrap:anywhere]"
+            : "mt-0.5 text-sm italic text-gray-400"
         }
       >
         {value || "Não informado"}
@@ -41,9 +41,9 @@ function Section({
 }) {
   return (
     <section className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-      <div className="border-b border-gray-100 px-6 py-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600">{title}</h2>
-        {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
+      <div className="border-b border-gray-100 px-6 py-3.5">
+        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        {description && <p className="mt-0.5 text-xs text-gray-500">{description}</p>}
       </div>
       <dl className="grid sm:grid-cols-2">{children}</dl>
     </section>
@@ -120,7 +120,7 @@ export function ProfilePage({ profile }: { profile: ProfileView }) {
 
       <section className="flex flex-col gap-4 rounded-card border border-gray-200 bg-white px-6 py-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600">Sessão</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Sessão</h2>
           <p className="mt-0.5 text-sm text-gray-500">
             Encerre o acesso neste dispositivo. Para entrar de novo, use seu e-mail e senha.
           </p>

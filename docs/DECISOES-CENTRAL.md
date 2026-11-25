@@ -61,3 +61,13 @@ Os e-mails de solicitação, aprovação e lembretes continuam sendo montados e 
 Quem esquece a senha pede uma nova em "Esqueci minha senha". O pedido avisa os administradores na plataforma, marca a pessoa com "Pediu nova senha" na lista de Usuários e soma no contador do menu. Na página da pessoa, a central clica em "Gerar senha provisória": o sistema cria uma senha aleatória (três blocos de quatro caracteres, sem letras ou números que se confundem), mostra uma única vez para ser repassada, encerra as sessões abertas da conta e registra a ação no histórico de quem gerou, sem guardar a senha.
 
 No primeiro acesso com a provisória, a pessoa cai em "Defina uma senha nova" e não consegue usar nenhuma tela ou API até trocar (as APIs respondem 403 `PASSWORD_CHANGE_REQUIRED`). A nova senha segue a regra de senha forte e não pode repetir a provisória. A central também pode gerar a provisória sem pedido, para qualquer conta ativa.
+
+## Telas de detalhe (2026-11-25)
+
+Solicitação, viagem, checklist, veículo e usuário, na central e na área do servidor, seguem o mesmo modelo, montado com `src/components/ui/detail.tsx`:
+
+- **Cabeçalho:** voltar com o nome da lista, título legível (destino, modelo do veículo, nome da pessoa), código curto ou placa ao lado com o código completo ao passar o mouse, situação e uma linha de contexto (período e modalidade). Ações simples, como cancelar, editar ou preencher checklist, ficam à direita.
+- **Corpo:** conteúdo principal à esquerda e, à direita, os envolvidos e a gestão. Quando há uma decisão pendente (analisar solicitação, revisar checklist), ela aparece como o primeiro bloco.
+- **Sem repetição:** cada pessoa aparece uma vez, com nome e telefone, e leva ao perfil. Registros ligados entre si viram links compactos. Datas como "02/12 às 09:00" (sem o ano corrente) e quilometragem como "60.085 km".
+- **Checklist:** mostra primeiro o que pede atenção e as fotos; a lista completa de itens fica recolhida.
+- **Veículo:** dados em leitura, com "Editar" no cabeçalho (`?editar=1`). Não há histórico no módulo: as alterações aparecem no histórico de quem as fez, com o antes e o depois (ex.: "Alterou quilometragem (0 km → 1.000 km)").

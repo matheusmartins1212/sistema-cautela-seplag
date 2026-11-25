@@ -1,4 +1,6 @@
-/** Formatação curta e padronizada usada nas listas. */
+/** Formatação curta e padronizada usada nas listas e nas telas de detalhe. */
+
+import { toAppWallClock } from "./time";
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -42,8 +44,8 @@ export function formatPeriod(
  * (horários agendados das viagens).
  */
 export function formatWallClockPeriod(
-  startIso: string,
-  endIso: string,
+  startIso: string | Date,
+  endIso: string | Date,
   currentYear?: number,
 ): string {
   const a = new Date(startIso);
@@ -62,4 +64,37 @@ export function currentYearCuiaba(now: Date = new Date()): number {
 /** Parte final do código público (ex.: "ZTRN2P9D" de "SOL-2026-11-13-ZTRN2P9D"). */
 export function shortCode(publicCode: string): string {
   return publicCode.split("-").pop() ?? publicCode;
+}
+
+function dayMonth(y: number, m: number, d: number, currentYear?: number): string {
+  return currentYear !== undefined && y === currentYear
+    ? `${pad(d)}/${pad(m)}`
+    : `${pad(d)}/${pad(m)}/${y}`;
+}
+
+/**
+ * Data e hora numa expressão só, como nas telas de detalhe: "02/12 às 09:00"
+ * (ano omitido quando é o corrente). Recebe a data "aaaa-mm-dd" e a hora "hh:mm".
+ */
+export function formatDateTimeParts(date: string, time: string, currentYear?: number): string {
+  const { d, m, y } = splitIso(date);
+  return `${dayMonth(Number(y), Number(m), Number(d), currentYear)} às ${time}`;
+}
+
+/** Mesmo formato para horários agendados (relógio de Cuiabá gravado em UTC). */
+export function formatWallClockDateTime(iso: string | Date, currentYear?: number): string {
+  const v = new Date(iso);
+  return `${dayMonth(v.getUTCFullYear(), v.getUTCMonth() + 1, v.getUTCDate(), currentYear)} às ${pad(
+    v.getUTCHours(),
+  )}:${pad(v.getUTCMinutes())}`;
+}
+
+/** Mesmo formato para instantes reais (convertidos para Cuiabá, UTC-4). */
+export function formatInstantDateTime(iso: string | Date, currentYear?: number): string {
+  return formatWallClockDateTime(toAppWallClock(new Date(iso)).toISOString(), currentYear);
+}
+
+/** Quilometragem com separador de milhar: "60.085 km". */
+export function formatKm(km: number): string {
+  return `${km.toLocaleString("pt-BR")} km`;
 }

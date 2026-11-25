@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { countLabel, formatPeriod, formatWallClockPeriod, shortCode } from "./format";
+import {
+  countLabel,
+  formatDateTimeParts,
+  formatInstantDateTime,
+  formatKm,
+  formatPeriod,
+  formatWallClockDateTime,
+  formatWallClockPeriod,
+  shortCode,
+} from "./format";
 
 describe("formatação das listas", () => {
   it("conta no singular e no plural", () => {
@@ -36,5 +45,27 @@ describe("formatação das listas", () => {
     expect(formatWallClockPeriod("2026-11-23T16:00:00.000Z", "2026-11-23T18:00:00.000Z")).toBe(
       "23/11/2026, 16:00–18:00",
     );
+  });
+});
+
+describe("formatação das telas de detalhe", () => {
+  it("data e hora com 'às', sem o ano corrente", () => {
+    expect(formatDateTimeParts("2026-12-02", "09:00", 2026)).toBe("02/12 às 09:00");
+    expect(formatDateTimeParts("2027-01-05", "07:30", 2026)).toBe("05/01/2027 às 07:30");
+    expect(formatDateTimeParts("2026-12-02", "09:00")).toBe("02/12/2026 às 09:00");
+  });
+
+  it("horário agendado é lido como relógio de Cuiabá", () => {
+    expect(formatWallClockDateTime("2026-12-02T09:00:00.000Z", 2026)).toBe("02/12 às 09:00");
+  });
+
+  it("instante real é convertido para Cuiabá (UTC-4)", () => {
+    expect(formatInstantDateTime("2026-11-25T14:00:00.000Z", 2026)).toBe("25/11 às 10:00");
+    expect(formatInstantDateTime("2027-01-01T02:00:00.000Z", 2026)).toBe("31/12 às 22:00");
+  });
+
+  it("quilometragem com milhar", () => {
+    expect(formatKm(60085)).toBe("60.085 km");
+    expect(formatKm(0)).toBe("0 km");
   });
 });

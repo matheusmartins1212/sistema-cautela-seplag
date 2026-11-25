@@ -198,7 +198,10 @@ export function AdminDecisionPanel({
             <span className="font-normal text-gray-600"> · o solicitante pediu para dirigir</span>
           )}
           {passengerCount !== null && (
-            <span className="font-normal text-gray-600"> · {passengerCount} passageiro(s)</span>
+            <span className="font-normal text-gray-600">
+              {" "}
+              · {passengerCount === 1 ? "1 passageiro" : `${passengerCount} passageiros`}
+            </span>
           )}
         </p>
         <Select

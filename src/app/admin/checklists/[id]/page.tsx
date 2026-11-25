@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ChecklistAnswer } from "@prisma/client";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
@@ -12,8 +11,8 @@ import {
   compareChecklistsOfCaution,
   hasNotableDivergence,
 } from "@/server/modules/checklists/comparison.service";
+import { prisma } from "@/server/db/prisma";
 import { Errors } from "@/server/lib/errors";
-import { formatInstantBr, formatIsoDateBr } from "@/shared/time";
 import { ChecklistStatusBadge } from "@/components/checklists/checklist-status-badge";
 import { ReviewChecklistPanel } from "@/components/checklists/review-checklist-panel";
 import { PhotoGallery } from "@/components/checklists/photo-gallery";
@@ -25,10 +24,24 @@ import {
   FUEL_LEVEL_LABEL,
   ITEM_GROUP_LABEL,
 } from "@/components/checklists/labels";
+import { DetailCard, DetailHeader, DetailLayout, Fact, Facts } from "@/components/ui/detail";
+import {
+  countLabel,
+  currentYearCuiaba,
+  formatDateTimeParts,
+  formatInstantDateTime,
+  formatKm,
+  shortCode,
+} from "@/shared/format";
+import { formatPlate } from "@/shared/validation/plate";
+import { cn } from "@/lib/cn";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
+
+/** Respostas que pedem atenção da central. */
+const PROBLEM_ANSWERS = new Set<ChecklistAnswer>(["RUIM", "AUSENTE"]);
 
 export default async function AdminChecklistDetalhePage({ params }: Props) {
   const session = await getCurrentSession();
@@ -50,12 +63,34 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
     throw error;
   }
   const c = toPublicChecklist(raw);
+  const year = currentYearCuiaba();
 
-  const [comparison, reviews] = await Promise.all([
+  const [comparison, reviews, caution, filledBy] = await Promise.all([
     c.type === "DEVOLUCAO" ? compareChecklistsOfCaution(c.cautionId) : Promise.resolve(null),
     getChecklistReviews(c.id),
+    prisma.caution.findUnique({
+      where: { id: c.cautionId },
+      select: { publicCode: true, vehicle: { select: { brand: true, model: true, plate: true } } },
+    }),
+    prisma.user.findUnique({ where: { id: c.userId }, select: { fullName: true } }),
   ]);
-  const showDivergencePanel = comparison && hasNotableDivergence(comparison);
+  const showDivergence = comparison && hasNotableDivergence(comparison);
+
+  const typeLabel = CHECKLIST_TYPE_LABEL[c.type].toLowerCase();
+  const problems = c.items.filter(
+    (it) => (it.answer && PROBLEM_ANSWERS.has(it.answer)) || it.observation,
+  );
+  const unanswered = c.items.filter((it) => !it.answer).length;
+  const itemsSummary =
+    problems.length === 0 && unanswered === 0
+      ? `${countLabel(c.items.length, "item verificado", "itens verificados")}, sem problemas.`
+      : [
+          problems.length > 0 &&
+            `${countLabel(problems.length, "item pede", "itens pedem")} atenção`,
+          unanswered > 0 && `${countLabel(unanswered, "item", "itens")} sem resposta`,
+        ]
+          .filter(Boolean)
+          .join(" · ") + ` (de ${c.items.length}).`;
 
   const itemsByGroup = c.items.reduce<Record<string, typeof c.items>>((acc, it) => {
     const k = it.category ?? "GERAIS";
@@ -64,191 +99,199 @@ export default async function AdminChecklistDetalhePage({ params }: Props) {
     return acc;
   }, {});
 
+  const vehicleText = caution?.vehicle
+    ? `${caution.vehicle.brand} ${caution.vehicle.model} · ${formatPlate(caution.vehicle.plate)}`
+    : null;
+  const sentText = c.submittedAt
+    ? `enviado em ${formatInstantDateTime(c.submittedAt, year)}${filledBy ? ` por ${filledBy.fullName}` : ""}`
+    : "ainda não enviado";
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={`/admin/cautelas/${c.cautionId}`}
-          className="text-sm text-institutional-700 hover:underline"
-        >
-          ← Viagem
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-institutional-900">
-            Checklist — {CHECKLIST_TYPE_LABEL[c.type]}
-          </h1>
-          <ChecklistStatusBadge status={c.status} />
-        </div>
-      </div>
+      <DetailHeader
+        backHref={`/admin/cautelas/${c.cautionId}`}
+        backLabel={caution ? `Viagem ${shortCode(caution.publicCode)}` : "Viagem"}
+        title={`Checklist de ${typeLabel}`}
+        badges={<ChecklistStatusBadge status={c.status} />}
+        meta={[vehicleText, sentText].filter(Boolean).join(" · ")}
+      />
 
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Dados gerais
-        </h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Data" value={c.realDate ? formatIsoDateBr(c.realDate) : "—"} />
-          <Row label="Horário" value={c.realTime ?? "—"} />
-          <Row label="Quilometragem" value={c.mileage != null ? String(c.mileage) : "—"} />
-          <Row label="Combustível" value={c.fuelLevel ? FUEL_LEVEL_LABEL[c.fuelLevel] : "—"} />
-          <Row
-            label="Cartão de abastecimento"
-            value={c.fuelCardStatus ? FUEL_CARD_LABEL[c.fuelCardStatus] : "—"}
-          />
-          <Row
-            label="Limpeza interna"
-            value={c.internalCleanliness ? CLEANLINESS_LABEL[c.internalCleanliness] : "—"}
-          />
-          <Row
-            label="Limpeza externa"
-            value={c.externalCleanliness ? CLEANLINESS_LABEL[c.externalCleanliness] : "—"}
-          />
-          {c.parkingLocation && <Row label="Local estacionado" value={c.parkingLocation} />}
-        </dl>
-      </section>
+      <DetailLayout
+        main={
+          <>
+            {c.status === "ENVIADO" && (
+              <DetailCard
+                title="Análise da central"
+                description="Aprove o checklist ou peça correção a quem preencheu."
+                tone="highlight"
+              >
+                <ReviewChecklistPanel checklistId={c.id} />
+              </DetailCard>
+            )}
 
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Itens ({c.items.length})
-        </h2>
-        <div className="space-y-5">
-          {Object.entries(itemsByGroup).map(([groupKey, items]) => (
-            <div key={groupKey}>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-institutional-700">
-                {ITEM_GROUP_LABEL[groupKey] ?? groupKey}
-              </h3>
-              <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 bg-gray-50">
-                {items.map((it) => (
-                  <li
-                    key={it.id}
-                    className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <span className="text-sm text-gray-800">{it.itemLabel}</span>
-                    <span className="text-xs font-semibold text-institutional-900">
-                      {it.answer ? ANSWER_LABEL[it.answer] : "Sem resposta"}
-                    </span>
-                    {it.observation && (
-                      <span className="text-xs text-gray-600 sm:basis-full">
-                        Obs.: {it.observation}
-                      </span>
+            {showDivergence && comparison && (
+              <DetailCard title="Diferenças entre a saída e o retorno" tone="warning">
+                <ul className="space-y-1.5 text-sm text-gray-800">
+                  {comparison.fuelDeteriorated && (
+                    <li>
+                      Combustível baixou de{" "}
+                      <strong>{FUEL_LEVEL_LABEL[comparison.fuelDeteriorated.before]}</strong> para{" "}
+                      <strong>{FUEL_LEVEL_LABEL[comparison.fuelDeteriorated.after]}</strong>.
+                    </li>
+                  )}
+                  {comparison.mileageInconsistent && (
+                    <li>
+                      Quilometragem inconsistente: o retorno marca{" "}
+                      <strong>{formatKm(Math.abs(comparison.mileageDelta ?? 0))}</strong> a menos
+                      que a saída.
+                    </li>
+                  )}
+                  {comparison.damageDeclaredOnReturn && <li>Avaria declarada no retorno.</li>}
+                  {comparison.itemsDeteriorated.map((d) => (
+                    <li key={d.itemKey}>
+                      <strong>{d.itemLabel}</strong>:{" "}
+                      {d.before ? (ANSWER_LABEL[d.before as ChecklistAnswer] ?? d.before) : "?"} na
+                      saída, {d.after ? (ANSWER_LABEL[d.after as ChecklistAnswer] ?? d.after) : "?"}{" "}
+                      no retorno.
+                    </li>
+                  ))}
+                </ul>
+              </DetailCard>
+            )}
+
+            <DetailCard title="Resumo">
+              <Facts columns={3}>
+                <Fact label="Data e hora">
+                  {c.realDate && c.realTime
+                    ? formatDateTimeParts(c.realDate, c.realTime, year)
+                    : "—"}
+                </Fact>
+                <Fact
+                  label="Quilometragem"
+                  note={
+                    comparison?.mileageDelta != null && !comparison.mileageInconsistent
+                      ? `${formatKm(comparison.mileageDelta)} rodados`
+                      : undefined
+                  }
+                >
+                  {c.mileage != null ? formatKm(c.mileage) : "—"}
+                </Fact>
+                <Fact label="Combustível">{c.fuelLevel ? FUEL_LEVEL_LABEL[c.fuelLevel] : "—"}</Fact>
+                <Fact label="Cartão de abastecimento">
+                  {c.fuelCardStatus ? FUEL_CARD_LABEL[c.fuelCardStatus] : "—"}
+                </Fact>
+                <Fact label="Limpeza interna">
+                  {c.internalCleanliness ? CLEANLINESS_LABEL[c.internalCleanliness] : "—"}
+                </Fact>
+                <Fact label="Limpeza externa">
+                  {c.externalCleanliness ? CLEANLINESS_LABEL[c.externalCleanliness] : "—"}
+                </Fact>
+                {c.parkingLocation && <Fact label="Local estacionado">{c.parkingLocation}</Fact>}
+                {(c.hasDamage || c.damageDescription) && (
+                  <Fact label="Avaria declarada" wide>
+                    {c.damageDescription || "Sim"}
+                  </Fact>
+                )}
+                {(c.hasChangesFromInitial || c.changesDescription) && (
+                  <Fact label="Alterações desde a saída" wide>
+                    {c.changesDescription || "Sim"}
+                  </Fact>
+                )}
+                {c.generalNotes && (
+                  <Fact label="Observações" wide>
+                    {c.generalNotes}
+                  </Fact>
+                )}
+              </Facts>
+            </DetailCard>
+
+            <DetailCard title="Itens" description={itemsSummary}>
+              {problems.length > 0 && (
+                <ul className="mb-4 divide-y divide-amber-100 overflow-hidden rounded-md border border-amber-200 bg-amber-50/60">
+                  {problems.map((it) => (
+                    <li key={it.id} className="px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-gray-900">{it.itemLabel}</span>
+                        <span className="text-xs font-semibold text-amber-800">
+                          {it.answer ? ANSWER_LABEL[it.answer] : "Sem resposta"}
+                        </span>
+                      </div>
+                      {it.observation && (
+                        <p className="mt-0.5 text-xs text-gray-600">{it.observation}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <details className="group">
+                <summary className="cursor-pointer list-none text-sm font-medium text-institutional-700 hover:text-institutional-900">
+                  <span className="group-open:hidden">Ver os {c.items.length} itens</span>
+                  <span className="hidden group-open:inline">Esconder os itens</span>
+                </summary>
+                <div className="mt-3 space-y-4">
+                  {Object.entries(itemsByGroup).map(([groupKey, items]) => (
+                    <div key={groupKey}>
+                      <h3 className="mb-1.5 text-xs font-semibold text-gray-500">
+                        {ITEM_GROUP_LABEL[groupKey] ?? groupKey}
+                      </h3>
+                      <ul className="divide-y divide-gray-100 rounded-md border border-gray-200">
+                        {items.map((it) => (
+                          <li
+                            key={it.id}
+                            className="flex items-center justify-between gap-3 px-3 py-1.5"
+                          >
+                            <span className="text-sm text-gray-800">{it.itemLabel}</span>
+                            <span
+                              className={cn(
+                                "text-xs font-semibold",
+                                it.answer && PROBLEM_ANSWERS.has(it.answer)
+                                  ? "text-amber-800"
+                                  : "text-gray-500",
+                              )}
+                            >
+                              {it.answer ? ANSWER_LABEL[it.answer] : "Sem resposta"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </DetailCard>
+
+            <DetailCard title="Fotos">
+              <PhotoGallery checklistId={c.id} />
+            </DetailCard>
+          </>
+        }
+        aside={
+          <DetailCard title="Revisões">
+            {reviews.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                {c.status === "ENVIADO" ? "Aguardando a análise da central." : "Nenhuma revisão."}
+              </p>
+            ) : (
+              <ul className="-my-1 divide-y divide-gray-100">
+                {reviews.map((r) => (
+                  <li key={r.id} className="py-2.5">
+                    <p className="text-sm font-medium text-gray-900">
+                      {r.decision === "APPROVE" ? "Aprovado" : "Correção pedida"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {r.reviewerName ? `${r.reviewerName} · ` : ""}
+                      {formatInstantDateTime(r.createdAt, year)}
+                    </p>
+                    {r.notes && (
+                      <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{r.notes}</p>
                     )}
                   </li>
                 ))}
               </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {(c.hasChangesFromInitial ||
-        c.changesDescription ||
-        c.hasDamage ||
-        c.damageDescription ||
-        c.generalNotes) && (
-        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Observações
-          </h2>
-          {c.hasChangesFromInitial && <Row label="Alterações desde a saída" value="Sim" />}
-          {c.changesDescription && (
-            <Row label="Descrição das alterações" value={c.changesDescription} />
-          )}
-          {c.hasDamage && <Row label="Possui avaria" value="Sim" />}
-          {c.damageDescription && <Row label="Descrição da avaria" value={c.damageDescription} />}
-          {c.generalNotes && <Row label="Observações gerais" value={c.generalNotes} />}
-        </section>
-      )}
-
-      {showDivergencePanel && comparison && (
-        <section className="rounded-card border border-warning/40 bg-warning/5 p-6 shadow-card">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-warning">
-            Comparação saída × retorno
-          </h2>
-          <ul className="space-y-2 text-sm text-gray-800">
-            {comparison.fuelDeteriorated && (
-              <li>
-                ⛽ Combustível abaixou:{" "}
-                <strong>{FUEL_LEVEL_LABEL[comparison.fuelDeteriorated.before]}</strong> →{" "}
-                <strong>{FUEL_LEVEL_LABEL[comparison.fuelDeteriorated.after]}</strong>
-              </li>
             )}
-            {comparison.mileageInconsistent && (
-              <li>
-                🛞 Quilometragem inconsistente: o retorno marca{" "}
-                <strong>{Math.abs(comparison.mileageDelta ?? 0).toLocaleString("pt-BR")}</strong> km
-                a menos que a saída.
-              </li>
-            )}
-            {comparison.mileageDelta != null && !comparison.mileageInconsistent && (
-              <li>
-                Quilometragem rodada:{" "}
-                <strong>{comparison.mileageDelta.toLocaleString("pt-BR")}</strong> km.
-              </li>
-            )}
-            {comparison.damageDeclaredOnReturn && (
-              <li>⚠️ Avaria declarada pelo condutor no retorno.</li>
-            )}
-            {comparison.itemsDeteriorated.length > 0 && (
-              <li>
-                Itens que pioraram ({comparison.itemsDeteriorated.length}):
-                <ul className="ml-4 mt-1 list-disc text-xs">
-                  {comparison.itemsDeteriorated.map((d) => (
-                    <li key={d.itemKey}>
-                      <strong>{d.itemLabel}</strong>:{" "}
-                      {d.before ? (ANSWER_LABEL[d.before as ChecklistAnswer] ?? d.before) : "?"} →{" "}
-                      {d.after ? (ANSWER_LABEL[d.after as ChecklistAnswer] ?? d.after) : "?"}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            )}
-          </ul>
-        </section>
-      )}
-
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Fotos</h2>
-        <PhotoGallery checklistId={c.id} />
-      </section>
-
-      {reviews.length > 0 && (
-        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Revisões
-          </h2>
-          <ul className="space-y-3 text-sm">
-            {reviews.map((r) => (
-              <li key={r.id} className="rounded-md border border-gray-100 bg-gray-50 p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-medium text-gray-900">
-                    {r.decision === "APPROVE" ? "Aprovado" : "Correção pedida"}
-                    {r.reviewerName ? ` por ${r.reviewerName}` : ""}
-                  </span>
-                  <time className="text-xs text-gray-500">{formatInstantBr(r.createdAt)}</time>
-                </div>
-                {r.notes && <p className="mt-1 whitespace-pre-line text-gray-700">{r.notes}</p>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {c.status === "ENVIADO" && (
-        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Decisão administrativa
-          </h2>
-          <ReviewChecklistPanel checklistId={c.id} />
-        </section>
-      )}
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="mb-2">
-      <dt className="text-xs uppercase text-gray-500">{label}</dt>
-      <dd className="font-medium text-gray-900">{value}</dd>
+          </DetailCard>
+        }
+      />
     </div>
   );
 }

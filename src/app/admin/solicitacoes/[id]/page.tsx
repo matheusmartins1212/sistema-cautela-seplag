@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import {
@@ -12,8 +11,19 @@ import { isAdmin } from "@/server/modules/auth/rbac";
 import { RequestStatusBadge } from "@/components/requests/request-status-badge";
 import { AdminDecisionPanel } from "@/components/requests/admin-decision-panel";
 import { TransportDetails } from "@/components/requests/transport-details";
+import { modalityLabel } from "@/components/requests/trip-text";
+import {
+  DetailCard,
+  DetailHeader,
+  DetailLayout,
+  RelatedItem,
+  RelatedList,
+} from "@/components/ui/detail";
+import { CautionStatusBadge } from "@/components/cautions/caution-status-badge";
+import type { CautionStatus } from "@prisma/client";
 import { formatPlate } from "@/shared/validation/plate";
 import { formatPhoneBr } from "@/shared/phone";
+import { currentYearCuiaba, formatPeriod, shortCode } from "@/shared/format";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -39,6 +49,7 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
     throw error;
   }
   const r = toPublicRequest(reqRaw, { includeUser: true, includeCaution: true });
+  const year = currentYearCuiaba();
 
   // Opções de veículo e condutor só interessam enquanto a solicitação está em análise.
   const pending = r.status === "PENDENTE_ANALISE";
@@ -65,98 +76,110 @@ export default async function AdminSolicitacaoDetalhePage({ params }: Props) {
       }))
     : [];
 
+  const caution = r.status === "APROVADA" ? r.caution : null;
+  // Aprovado, vale o que a central definiu (ela pode escalar condutor mesmo sem pedido).
+  const withDriver = caution ? Boolean(caution.driver) : r.withDriver;
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/admin/solicitacoes" className="text-sm text-institutional-700 hover:underline">
-          ← Solicitações
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-xl font-bold text-institutional-900">{r.publicCode}</h1>
-          <RequestStatusBadge status={r.status} />
-        </div>
-      </div>
+      <DetailHeader
+        backHref="/admin/solicitacoes"
+        backLabel="Solicitações"
+        title={r.destination}
+        code={shortCode(r.publicCode)}
+        codeTitle={r.publicCode}
+        badges={<RequestStatusBadge status={r.status} />}
+        meta={`${formatPeriod(r.withdrawalDate, r.withdrawalTime, r.returnDate, r.returnTime, year)} · ${modalityLabel(withDriver)}`}
+      />
 
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Solicitante
-        </h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <Row label="Nome" value={r.user?.fullName ?? "—"} />
-          <Row label="Matrícula" value={r.user?.registrationNumber ?? "—"} />
-          <Row label="E-mail" value={r.user?.email ?? "—"} />
-          <Row label="Telefone" value={r.user?.phone ? formatPhoneBr(r.user.phone) : "—"} />
-          <Row label="Órgão" value={r.user?.agency ?? "—"} />
-          <Row label="Setor" value={r.user?.sector ?? "—"} />
-          <Row label="Lotação" value={r.user?.department ?? "—"} />
-        </dl>
-      </section>
+      <DetailLayout
+        main={
+          <>
+            {pending && (
+              <DetailCard
+                title="Análise da central"
+                description={
+                  r.withDriver
+                    ? "Defina o veículo e o condutor, ou recuse informando o motivo."
+                    : "Defina o veículo, ou recuse informando o motivo."
+                }
+                tone="highlight"
+              >
+                <AdminDecisionPanel
+                  requestId={r.id}
+                  availableVehicles={availableVehicles}
+                  availableDrivers={availableDrivers}
+                  passengerCount={r.passengerCount}
+                  withDriver={r.withDriver}
+                />
+              </DetailCard>
+            )}
 
-      <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
-          Dados da solicitação
-        </h2>
-        <TransportDetails r={r} />
-      </section>
+            {r.status === "NAO_APROVADA" && r.rejectionReason && (
+              <DetailCard title="Motivo da recusa" tone="danger">
+                <p className="whitespace-pre-line text-sm text-gray-800">{r.rejectionReason}</p>
+              </DetailCard>
+            )}
 
-      {r.status === "APROVADA" && r.caution?.vehicle && (
-        <section className="rounded-card border border-success/30 bg-success/5 p-6 shadow-card">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-success">
-            Viagem vinculada
-          </h2>
-          <p className="text-sm text-gray-800">
-            <span className="font-mono font-semibold">{r.caution.publicCode}</span> ·{" "}
-            {r.caution.vehicle.brand} {r.caution.vehicle.model} —{" "}
-            <span className="font-mono">{r.caution.vehicle.plateFormatted}</span>
-          </p>
-          <p className="mt-1 text-sm text-gray-800">
-            Condutor:{" "}
-            {r.caution.driver
-              ? `${r.caution.driver.fullName} · ${formatPhoneBr(r.caution.driver.phone)}`
-              : "o próprio solicitante (cautela)"}
-          </p>
-          {r.adminNotes && <p className="mt-2 text-xs text-gray-600">Observação: {r.adminNotes}</p>}
-          <div className="mt-3">
-            <Link
-              href={`/admin/cautelas/${r.caution.id}`}
-              className="text-sm font-medium text-success hover:underline"
-            >
-              Gerenciar viagem →
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {r.status === "NAO_APROVADA" && r.rejectionReason && (
-        <section className="rounded-card border border-danger/30 bg-danger/5 p-6 shadow-card">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-danger">Recusa</h2>
-          <p className="text-sm text-gray-700">{r.rejectionReason}</p>
-        </section>
-      )}
-
-      {r.status === "PENDENTE_ANALISE" && (
-        <section className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            Decisão administrativa
-          </h2>
-          <AdminDecisionPanel
-            requestId={r.id}
-            availableVehicles={availableVehicles}
-            availableDrivers={availableDrivers}
-            passengerCount={r.passengerCount}
-            withDriver={r.withDriver}
-          />
-        </section>
-      )}
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase text-gray-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-gray-900">{value}</dd>
+            <DetailCard title="Pedido">
+              <TransportDetails r={r} />
+              {r.adminNotes && (
+                <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
+                  Observação da central: {r.adminNotes}
+                </p>
+              )}
+            </DetailCard>
+          </>
+        }
+        aside={
+          <DetailCard title="Envolvidos">
+            <RelatedList>
+              {r.user && (
+                <RelatedItem
+                  label="Solicitante"
+                  title={r.user.fullName}
+                  detail={
+                    <>
+                      {formatPhoneBr(r.user.phone)}
+                      <span className="block">
+                        {[r.user.agency, r.user.sector].filter(Boolean).join(" · ")}
+                      </span>
+                    </>
+                  }
+                  href={`/admin/usuarios/${r.user.id}`}
+                />
+              )}
+              {caution && (
+                <RelatedItem
+                  label="Viagem"
+                  title={<span className="font-mono">{shortCode(caution.publicCode)}</span>}
+                  badge={<CautionStatusBadge status={caution.status as CautionStatus} />}
+                  href={`/admin/cautelas/${caution.id}`}
+                />
+              )}
+              {caution?.vehicle && (
+                <RelatedItem
+                  label="Veículo"
+                  title={`${caution.vehicle.brand} ${caution.vehicle.model}`}
+                  detail={<span className="font-mono">{caution.vehicle.plateFormatted}</span>}
+                  href={`/admin/veiculos/${caution.vehicle.id}`}
+                />
+              )}
+              {caution &&
+                (caution.driver ? (
+                  <RelatedItem
+                    label="Condutor"
+                    title={caution.driver.fullName}
+                    detail={formatPhoneBr(caution.driver.phone)}
+                    href={`/admin/usuarios/${caution.driver.id}`}
+                  />
+                ) : (
+                  <RelatedItem label="Condutor" title="O próprio solicitante dirige" />
+                ))}
+            </RelatedList>
+          </DetailCard>
+        }
+      />
     </div>
   );
 }

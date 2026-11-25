@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/modules/auth/session";
 import { isSuperAdmin } from "@/server/modules/auth/rbac";
@@ -10,6 +9,7 @@ import { UserActions } from "@/components/users/user-actions";
 import { DriverProfileForm } from "@/components/drivers/driver-profile-form";
 import { formatPhoneBr } from "@/shared/phone";
 import { AccountHistory } from "@/components/users/account-history";
+import { DetailCard, DetailHeader, DetailLayout, Fact, Facts } from "@/components/ui/detail";
 
 export const dynamic = "force-dynamic";
 
@@ -36,68 +36,75 @@ export default async function AdminUsuarioDetailPage({ params, searchParams }: P
   const canChangeRole = isSuperAdmin(session.user.role);
   const isSelf = session.user.id === user.id;
 
+  const meta = [
+    USER_ROLE_LABEL[user.role],
+    user.isDriver ? "Condutor da central" : null,
+    user.agency,
+    user.department,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/admin/usuarios"
-          className="text-sm font-medium text-institutional-700 hover:underline"
-        >
-          ← Voltar para usuários
-        </Link>
-        <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-institutional-900">{user.fullName}</h1>
-          <UserStatusBadge status={user.status} />
-        </div>
-      </div>
+      <DetailHeader
+        backHref="/admin/usuarios"
+        backLabel="Usuários"
+        title={user.fullName}
+        badges={<UserStatusBadge status={user.status} />}
+        meta={meta}
+      />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
-          <h2 className="text-sm font-semibold text-gray-700">Dados do usuário</h2>
-          <dl className="mt-3 space-y-1.5 text-sm">
-            <Row label="E-mail" value={user.email} />
-            <Row label="CPF" value={user.cpfMasked} />
-            <Row label="Matrícula" value={user.registrationNumber} />
-            <Row label="Telefone" value={formatPhoneBr(user.phone)} />
-            <Row label="Órgão" value={user.agency ?? "—"} />
-            <Row label="Setor" value={user.sector} />
-            <Row label="Lotação" value={user.department} />
-            <Row label="Papel" value={USER_ROLE_LABEL[user.role]} />
-          </dl>
-        </section>
+      <DetailLayout
+        main={
+          <>
+            <DetailCard title="Dados">
+              <Facts>
+                <Fact label="E-mail">{user.email}</Fact>
+                <Fact label="Telefone">{formatPhoneBr(user.phone)}</Fact>
+                <Fact label="CPF">{user.cpfMasked}</Fact>
+                <Fact label="Matrícula">{user.registrationNumber}</Fact>
+                <Fact label="Órgão">{user.agency ?? "—"}</Fact>
+                <Fact label="Lotação">{user.department}</Fact>
+                <Fact label="Setor">{user.sector}</Fact>
+              </Facts>
+            </DetailCard>
+          </>
+        }
+        aside={
+          <>
+            <DetailCard title="Gerenciar">
+              <UserActions
+                userId={user.id}
+                fullName={user.fullName}
+                passwordResetRequestedAt={user.passwordResetRequestedAt}
+                mustChangePassword={user.mustChangePassword}
+                currentStatus={user.status}
+                currentRole={user.role}
+                canChangeRole={canChangeRole}
+                isSelf={isSelf}
+              />
+            </DetailCard>
 
-        <section className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
-          <h2 className="mb-4 text-sm font-semibold text-gray-700">Gerenciar</h2>
-          <UserActions
-            userId={user.id}
-            fullName={user.fullName}
-            passwordResetRequestedAt={user.passwordResetRequestedAt}
-            mustChangePassword={user.mustChangePassword}
-            currentStatus={user.status}
-            currentRole={user.role}
-            canChangeRole={canChangeRole}
-            isSelf={isSelf}
-          />
-        </section>
-
-        <section className="rounded-card border border-gray-200 bg-white p-5 shadow-card lg:col-span-2">
-          <h2 className="mb-4 text-sm font-semibold text-gray-700">Condutor</h2>
-          {user.role === "USER" ? (
-            <DriverProfileForm
-              userId={user.id}
-              isDriver={user.isDriver}
-              driverLicenseCategory={user.driverLicenseCategory}
-              driverLicenseExpiresAt={user.driverLicenseExpiresAt}
-            />
-          ) : (
-            <p className="text-sm text-gray-600">
-              Administradores não são escalados como condutores, porque os checklists ficam na área
-              do servidor. Se esta pessoa também dirige, crie para ela uma conta de usuário e
-              habilite como condutor por lá.
-            </p>
-          )}
-        </section>
-      </div>
+            <DetailCard title="Condutor">
+              {user.role === "USER" ? (
+                <DriverProfileForm
+                  userId={user.id}
+                  isDriver={user.isDriver}
+                  driverLicenseCategory={user.driverLicenseCategory}
+                  driverLicenseExpiresAt={user.driverLicenseExpiresAt}
+                />
+              ) : (
+                <p className="text-sm text-gray-600">
+                  Administradores não são escalados como condutores, porque os checklists ficam na
+                  área do servidor. Se esta pessoa também dirige, crie para ela uma conta de usuário
+                  e habilite como condutor por lá.
+                </p>
+              )}
+            </DetailCard>
+          </>
+        }
+      />
 
       <AccountHistory
         userId={user.id}
@@ -105,15 +112,6 @@ export default async function AdminUsuarioDetailPage({ params, searchParams }: P
         group={historyGroup}
         page={historyPage}
       />
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-gray-500">{label}</dt>
-      <dd className="font-medium text-gray-900">{value}</dd>
     </div>
   );
 }

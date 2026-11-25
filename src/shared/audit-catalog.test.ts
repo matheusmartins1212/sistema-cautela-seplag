@@ -36,6 +36,18 @@ describe("catálogo da auditoria", () => {
     expect(describeAudit("VEHICLE_UPDATED", { changes: { plate: {}, notes: {} } })).toBe(
       "Alterou placa, observações",
     );
+    expect(
+      describeAudit("VEHICLE_UPDATED", {
+        changes: {
+          currentMileage: { from: 0, to: 1000 },
+          plate: { from: "ABC1D23", to: "ABC1D24" },
+          category: { from: "SUV", to: "PICKUP" },
+          notes: { from: "a", to: "b" },
+        },
+      }),
+    ).toBe(
+      "Alterou quilometragem (0 km → 1.000 km), placa (ABC-1D23 → ABC-1D24), categoria, observações",
+    );
   });
 
   it("descreve o ciclo da senha provisória", () => {

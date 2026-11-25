@@ -1,4 +1,5 @@
 import type { AuditAction } from "@prisma/client";
+import { formatPlate } from "@/shared/validation/plate";
 
 /**
  * Nomes em português das ações registradas na auditoria e o resumo de cada
@@ -150,6 +151,27 @@ const VEHICLE_FIELD_LABEL: Record<string, string> = {
 
 type Meta = Record<string, unknown>;
 
+const VEHICLE_FIELDS_WITH_VALUES = new Set([
+  "brand",
+  "model",
+  "plate",
+  "internalCode",
+  "linkedSector",
+  "agency",
+  "currentMileage",
+]);
+
+function vehicleValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "vazio";
+  if (field === "currentMileage") {
+    const km = Number(value);
+    return Number.isFinite(km) ? `${km.toLocaleString("pt-BR")} km` : String(value);
+  }
+  if (field === "plate" && typeof value === "string") return formatPlate(value);
+  const text = String(value);
+  return text.length > 40 ? `${text.slice(0, 37)}...` : text;
+}
+
 function text(v: unknown): string | null {
   return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
 }
@@ -226,10 +248,16 @@ export function describeAudit(action: AuditAction, rawMetadata: unknown): string
       return kind ? `Checklist de ${kind}${extra}` : "";
     }
     case "VEHICLE_UPDATED": {
-      const changes = m.changes && typeof m.changes === "object" ? Object.keys(m.changes) : [];
-      return changes.length > 0
-        ? `Alterou ${changes.map((k) => VEHICLE_FIELD_LABEL[k] ?? k).join(", ")}`
-        : "";
+      const changes =
+        m.changes && typeof m.changes === "object" ? (m.changes as Record<string, unknown>) : {};
+      const parts = Object.entries(changes).map(([k, raw]) => {
+        const label = VEHICLE_FIELD_LABEL[k] ?? k;
+        const c = raw && typeof raw === "object" ? (raw as Meta) : {};
+        // Valores curtos mostram o antes e o depois; categorias e textos longos, só o campo.
+        if (!VEHICLE_FIELDS_WITH_VALUES.has(k) || !("from" in c) || !("to" in c)) return label;
+        return `${label} (${vehicleValue(k, c.from)} → ${vehicleValue(k, c.to)})`;
+      });
+      return parts.length > 0 ? `Alterou ${parts.join(", ")}` : "";
     }
     case "STATUS_CHANGED":
       if (m.event === "overdue_detected") return "Viagem marcada como atrasada";

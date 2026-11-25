@@ -1,59 +1,24 @@
 import type { PublicVehicleRequest } from "@/server/modules/requests/request.dto";
+import { Fact, Facts } from "@/components/ui/detail";
+import { passengersText } from "@/components/requests/trip-text";
 import { formatPhoneBr } from "@/shared/phone";
 
-function formatDateBr(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
 /**
- * Bloco com os dados do transporte pedido (quando, trajeto, passageiros,
- * finalidade). Usado pelo solicitante e pela central. Pedidos sem condutor
- * podem não ter local de saída e passageiros: mostra só o que existe.
+ * Dados do pedido que não estão no cabeçalho (o período e a modalidade ficam
+ * lá). Usado pelo solicitante e pela central. Mostra só o que foi preenchido.
  */
 export function TransportDetails({ r }: { r: PublicVehicleRequest }) {
+  const passengers = passengersText(r.passengerNames, r.passengerCount);
   return (
-    <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-      <Row
-        label="Modalidade"
-        value={r.withDriver ? "Com condutor da central" : "Sem condutor (o solicitante dirige)"}
-      />
-      {r.requestingAgency && <Row label="Órgão solicitante" value={r.requestingAgency} />}
-      <Row label="Saída" value={`${formatDateBr(r.withdrawalDate)} às ${r.withdrawalTime}`} />
-      <Row label="Retorno previsto" value={`${formatDateBr(r.returnDate)} às ${r.returnTime}`} />
-      {r.origin && <Row label="Local de saída" value={r.origin} />}
-      <Row label="Destino" value={r.destination} />
-      {r.passengerCount !== null && <Row label="Passageiros" value={String(r.passengerCount)} />}
-      {r.contactPhone && <Row label="Contato no dia" value={formatPhoneBr(r.contactPhone)} />}
-      {r.termNumber && <Row label="Número do termo" value={r.termNumber} />}
-      {r.passengerNames && (
-        <div className="sm:col-span-2">
-          <dt className="text-xs uppercase text-gray-500">Nomes dos passageiros</dt>
-          <dd className="mt-0.5 font-medium text-gray-900">
-            <ol className="list-decimal space-y-0.5 pl-5">
-              {r.passengerNames
-                .split("\n")
-                .filter((n) => n.trim())
-                .map((n, i) => (
-                  <li key={i}>{n}</li>
-                ))}
-            </ol>
-          </dd>
-        </div>
-      )}
-      <div className="sm:col-span-2">
-        <dt className="text-xs uppercase text-gray-500">Finalidade</dt>
-        <dd className="mt-0.5 whitespace-pre-line font-medium text-gray-900">{r.reason}</dd>
-      </div>
-    </dl>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase text-gray-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-gray-900">{value}</dd>
-    </div>
+    <Facts>
+      {r.origin && <Fact label="Local de saída">{r.origin}</Fact>}
+      {r.requestingAgency && <Fact label="Órgão solicitante">{r.requestingAgency}</Fact>}
+      {r.contactPhone && <Fact label="Contato no dia">{formatPhoneBr(r.contactPhone)}</Fact>}
+      {r.termNumber && <Fact label="Número do termo">{r.termNumber}</Fact>}
+      {passengers && <Fact label="Passageiros">{passengers}</Fact>}
+      <Fact label="Finalidade" wide>
+        {r.reason}
+      </Fact>
+    </Facts>
   );
 }
