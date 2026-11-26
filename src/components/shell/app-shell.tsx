@@ -71,17 +71,18 @@ export function AppShell({
   }, [drawerOpen]);
 
   const brand = (
-    <div className="relative px-5 pb-5 pt-6">
-      <div className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] ring-1 ring-white/10">
-          <Image src={brasao} alt="Brasão do Estado de Mato Grosso" className="h-9 w-auto" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-institutional-300">
-            SEPLAG · SATGF
-          </p>
-          <p className="mt-0.5 text-[15px] font-semibold leading-snug text-white">{brandTitle}</p>
-        </div>
+    <div className="relative px-5 pb-5 pt-7 [@media(max-height:820px)]:pb-4 [@media(max-height:820px)]:pt-5">
+      <div className="flex flex-col items-center text-center">
+        <Image
+          src={brasao}
+          alt="Brasão do Estado de Mato Grosso"
+          priority
+          className="h-20 w-auto drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)] [@media(max-height:820px)]:h-14"
+        />
+        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-institutional-300 [@media(max-height:820px)]:mt-3">
+          SEPLAG · SATGF
+        </p>
+        <p className="mt-0.5 text-[15px] font-semibold leading-snug text-white">{brandTitle}</p>
       </div>
       <div
         aria-hidden="true"
@@ -93,9 +94,12 @@ export function AppShell({
   const nav = sections.flatMap((section) => section.items);
   const activeHref = activeNavHref(pathname, nav);
   const navList = (
-    <nav aria-label="Navegação principal" className="px-3 py-4">
+    <nav aria-label="Navegação principal" className="px-3 py-4 [@media(max-height:820px)]:py-3">
       {sections.map((section, i) => (
-        <div key={section.title ?? `secao-${i}`} className={cn(i > 0 && "mt-5")}>
+        <div
+          key={section.title ?? `secao-${i}`}
+          className={cn(i > 0 && "mt-5 [@media(max-height:820px)]:mt-3")}
+        >
           {section.title && (
             <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-institutional-200/80">
               {section.title}
