@@ -58,7 +58,7 @@ Os e-mails de solicitação, aprovação e lembretes continuam sendo montados e 
 
 ## Senha provisória (2026-11-25)
 
-Quem esquece a senha pede uma nova em "Esqueci minha senha". O pedido avisa os administradores na plataforma, marca a pessoa com "Pediu nova senha" na lista de Usuários e soma no contador do menu. Na página da pessoa, a central clica em "Gerar senha provisória": o sistema cria uma senha aleatória (três blocos de quatro caracteres, sem letras ou números que se confundem), mostra uma única vez para ser repassada, encerra as sessões abertas da conta e registra a ação no histórico de quem gerou, sem guardar a senha.
+Quem esquece a senha pede uma nova em "Esqueci minha senha". O pedido avisa os administradores na plataforma, e marca a pessoa com "Pediu nova senha" na lista de Usuários. Na página da pessoa, a central clica em "Gerar senha provisória": o sistema cria uma senha aleatória (três blocos de quatro caracteres, sem letras ou números que se confundem), mostra uma única vez para ser repassada, encerra as sessões abertas da conta e registra a ação no histórico de quem gerou, sem guardar a senha.
 
 No primeiro acesso com a provisória, a pessoa cai em "Defina uma senha nova" e não consegue usar nenhuma tela ou API até trocar (as APIs respondem 403 `PASSWORD_CHANGE_REQUIRED`). A nova senha segue a regra de senha forte e não pode repetir a provisória. A central também pode gerar a provisória sem pedido, para qualquer conta ativa.
 
@@ -71,3 +71,7 @@ Solicitação, viagem, checklist, veículo e usuário, na central e na área do 
 - **Sem repetição:** cada pessoa aparece uma vez, com nome e telefone, e leva ao perfil. Registros ligados entre si viram links compactos. Datas como "02/12 às 09:00" (sem o ano corrente) e quilometragem como "60.085 km".
 - **Checklist:** mostra primeiro o que pede atenção e as fotos; a lista completa de itens fica recolhida.
 - **Veículo:** dados em leitura, com "Editar" no cabeçalho (`?editar=1`). Não há histórico no módulo: as alterações aparecem no histórico de quem as fez, com o antes e o depois (ex.: "Alterou quilometragem (0 km → 1.000 km)").
+
+## Menu sem contadores (2026-11-26)
+
+A barra lateral não mostra mais contadores de pendência ao lado dos módulos. As pendências chegam pelo sino de notificações e aparecem nas próprias listas. Os nomes dos módulos ficaram maiores (15px) e mais claros sobre o azul.

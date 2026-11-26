@@ -3,7 +3,6 @@ import { getCurrentSession } from "@/server/modules/auth/session";
 import { isAdmin } from "@/server/modules/auth/rbac";
 import { AppShell } from "@/components/shell/app-shell";
 import { ADMIN_NAV_SECTIONS } from "@/components/shell/nav";
-import { getAdminNavBadges } from "@/server/modules/dashboard/nav-badges.service";
 import { toShellUser } from "@/components/shell/shell-user";
 
 /**
@@ -16,7 +15,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session) redirect("/login?next=/admin");
   if (session.user.mustChangePassword) redirect("/trocar-senha");
   if (!isAdmin(session.user.role)) redirect("/painel");
-  const badges = await getAdminNavBadges();
 
   return (
     <AppShell
@@ -24,7 +22,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       user={toShellUser(session.user)}
       profileHref="/admin/perfil"
       sections={ADMIN_NAV_SECTIONS}
-      badges={badges}
     >
       {children}
     </AppShell>

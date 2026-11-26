@@ -7,7 +7,7 @@ import brasao from "@/assets/brasao-mt.png";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { activeNavHref, type NavBadgeKey, type NavSection } from "./nav";
+import { activeNavHref, type NavSection } from "./nav";
 import { NavIcon } from "./nav-icons";
 import type { ShellUser } from "./shell-user";
 
@@ -17,8 +17,6 @@ interface Props {
   /** Página "Meu perfil" da área (servidor ou admin). */
   profileHref: string;
   sections: NavSection[];
-  /** Pendências mostradas ao lado dos itens que têm `badge`. */
-  badges?: Partial<Record<NavBadgeKey, number>>;
   contentMaxWidth?: "5xl" | "7xl";
   children: React.ReactNode;
 }
@@ -46,7 +44,6 @@ export function AppShell({
   user,
   profileHref,
   sections,
-  badges = {},
   contentMaxWidth = "7xl",
   children,
 }: Props) {
@@ -100,14 +97,13 @@ export function AppShell({
       {sections.map((section, i) => (
         <div key={section.title ?? `secao-${i}`} className={cn(i > 0 && "mt-5")}>
           {section.title && (
-            <p className="mb-1.5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-institutional-300/70">
+            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-institutional-200/80">
               {section.title}
             </p>
           )}
           <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = item.href === activeHref;
-              const count = item.badge ? (badges[item.badge] ?? 0) : 0;
               return (
                 <li key={item.href}>
                   <Link
@@ -115,11 +111,11 @@ export function AppShell({
                     onClick={() => setDrawerOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[15px] font-medium transition-colors",
                       "outline-none focus-visible:ring-2 focus-visible:ring-institutional-300",
                       active
                         ? "bg-white/[0.11] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                        : "text-institutional-100/85 hover:bg-white/[0.06] hover:text-white",
+                        : "text-white/90 hover:bg-white/[0.06] hover:text-white",
                     )}
                   >
                     {active && (
@@ -132,23 +128,14 @@ export function AppShell({
                       <NavIcon
                         name={item.icon}
                         className={cn(
-                          "h-[18px] w-[18px] shrink-0 transition-colors",
+                          "h-5 w-5 shrink-0 transition-colors",
                           active
                             ? "text-institutional-200"
-                            : "text-institutional-300/70 group-hover:text-institutional-200",
+                            : "text-institutional-200 group-hover:text-white",
                         )}
                       />
                     )}
                     <span className="flex-1 truncate">{item.label}</span>
-                    {count > 0 && (
-                      <span
-                        className="min-w-[1.375rem] rounded-full bg-amber-400 px-1.5 py-px text-center text-[11px] font-bold tabular-nums text-institutional-950"
-                        title={`${count} pendente${count === 1 ? "" : "s"}`}
-                      >
-                        {count > 99 ? "99+" : count}
-                        <span className="sr-only"> pendente{count === 1 ? "" : "s"}</span>
-                      </span>
-                    )}
                   </Link>
                 </li>
               );

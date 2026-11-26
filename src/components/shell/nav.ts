@@ -13,18 +13,10 @@ export type NavIconName =
   | "chart"
   | "plus";
 
-/** Contadores de pendência mostrados ao lado de alguns itens. */
-export type NavBadgeKey =
-  | "pendingRequests"
-  | "checklistsToReview"
-  | "openDamages"
-  | "accountsAttention";
-
 export interface NavItem {
   href: string;
   label: string;
   icon?: NavIconName;
-  badge?: NavBadgeKey;
   /** Rotas "índice" exigem match exato para não acender em subrotas. */
   exact?: boolean;
   /** Outras rotas que pertencem a este item (ex.: checklist pertence a Cautelas). */
@@ -95,16 +87,14 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
         href: "/admin/solicitacoes",
         label: "Solicitações",
         icon: "inbox",
-        badge: "pendingRequests",
       },
       {
         href: "/admin/cautelas",
         label: "Viagens",
         icon: "route",
         alsoMatches: ["/admin/checklists"],
-        badge: "checklistsToReview",
       },
-      { href: "/admin/avarias", label: "Avarias", icon: "alert", badge: "openDamages" },
+      { href: "/admin/avarias", label: "Avarias", icon: "alert" },
     ],
   },
   {
@@ -118,7 +108,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     title: "Gestão",
     items: [
       { href: "/admin/orgaos", label: "Órgãos", icon: "building" },
-      { href: "/admin/usuarios", label: "Usuários", icon: "users", badge: "accountsAttention" },
+      { href: "/admin/usuarios", label: "Usuários", icon: "users" },
       { href: "/admin/relatorios", label: "Relatórios", icon: "chart" },
     ],
   },
