@@ -1,4 +1,5 @@
 import { LogoutButton } from "@/components/logout-button";
+import { ChangeOwnPasswordForm } from "./change-own-password-form";
 import { USER_STATUS_LABEL } from "@/components/users/labels";
 import type { ProfileView } from "./profile-view";
 
@@ -117,6 +118,8 @@ export function ProfilePage({ profile }: { profile: ProfileView }) {
         <Field label="Conta criada em" value={profile.memberSince} />
         <Field label="E-mail confirmado em" value={profile.emailVerifiedOn} />
       </Section>
+
+      <ChangeOwnPasswordForm />
 
       <section className="flex flex-col gap-4 rounded-card border border-gray-200 bg-white px-6 py-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
         <div>

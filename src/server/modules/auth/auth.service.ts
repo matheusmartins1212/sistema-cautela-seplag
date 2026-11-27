@@ -412,6 +412,50 @@ export async function changeTemporaryPassword(
   });
 }
 
+/**
+ * Troca da própria senha pelo perfil. Confere a senha atual, recusa repetir a
+ * mesma e encerra as outras sessões abertas (a sessão atual continua).
+ */
+export async function changeOwnPassword(
+  userId: string,
+  currentSessionId: string,
+  currentPassword: string,
+  newPassword: string,
+  context?: RequestContext,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.status !== "ACTIVE" || user.deletedAt !== null) {
+    throw Errors.unauthorized();
+  }
+  if (!(await verifyPassword(user.passwordHash, currentPassword))) {
+    throw Errors.validation("Senha atual incorreta.", {
+      currentPassword: ["Senha atual incorreta."],
+    });
+  }
+  if (currentPassword === newPassword) {
+    throw Errors.validation("A nova senha precisa ser diferente da atual.", {
+      password: ["A nova senha precisa ser diferente da atual."],
+    });
+  }
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(newPassword), mustChangePassword: false },
+  });
+  await prisma.session.updateMany({
+    where: { userId: user.id, revokedAt: null, id: { not: currentSessionId } },
+    data: { revokedAt: new Date() },
+  });
+  await recordAudit({
+    action: "PASSWORD_RESET_COMPLETED",
+    actorUserId: user.id,
+    actorRole: user.role,
+    entityType: "User",
+    entityId: user.id,
+    metadata: { via: "self" },
+    context,
+  });
+}
+
 export async function forgotPassword(email: string, context?: RequestContext): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || user.status !== "ACTIVE") {

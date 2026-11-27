@@ -13,7 +13,7 @@ import {
 import { prisma } from "@/server/db/prisma";
 import { isWorkflowStatus } from "@/server/modules/vehicles/vehicle.schemas";
 import { env } from "@/server/config/env";
-import { Errors } from "@/server/lib/errors";
+import { type AppError, Errors } from "@/server/lib/errors";
 import { recordAudit } from "@/server/lib/audit";
 import type { RequestContext } from "@/server/lib/request-context";
 import { generateCautionCode, generateRequestCode } from "@/server/lib/public-code";
@@ -301,6 +301,38 @@ export async function getRequestById(
   return req as RequestWithRelations;
 }
 
+/**
+ * Grava a decisão só se o pedido ainda estiver em análise. Duas pessoas agindo
+ * ao mesmo tempo (o servidor cancela enquanto a central recusa, por exemplo):
+ * a segunda espera a primeira terminar, não encontra mais o pedido em análise e
+ * recebe "conflito", em vez de sobrescrever a decisão.
+ */
+async function decidePendingRequest(
+  id: string,
+  data: Prisma.VehicleRequestUncheckedUpdateManyInput,
+  conflictMessage: string,
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<VehicleRequest> {
+  const { count } = await db.vehicleRequest.updateMany({
+    where: { id, status: RequestStatus.PENDENTE_ANALISE },
+    data,
+  });
+  if (count !== 1) throw Errors.conflict(conflictMessage);
+  return db.vehicleRequest.findUniqueOrThrow({ where: { id } });
+}
+
+/**
+ * Bloqueio exclusivo, até o fim da transação, de cada recurso disputado
+ * (veículo, condutor). Aprovações que disputam o mesmo recurso passam a rodar
+ * uma depois da outra, e a segunda já enxerga a viagem criada pela primeira.
+ * Ordem fixa das chaves para não haver impasse entre duas transações.
+ */
+async function lockResources(tx: Prisma.TransactionClient, keys: string[]): Promise<void> {
+  for (const key of [...new Set(keys)].sort()) {
+    await tx.$queryRaw`SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))) AS l`;
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Cancelamento pelo usuário
 // ----------------------------------------------------------------------------
@@ -320,14 +352,15 @@ export async function cancelMyRequest(
     throw Errors.conflict("Apenas solicitações ainda em análise podem ser canceladas.");
   }
 
-  const updated = await prisma.vehicleRequest.update({
-    where: { id },
-    data: {
+  const updated = await decidePendingRequest(
+    id,
+    {
       status: RequestStatus.CANCELADA_PELO_USUARIO,
       adminNotes: input.cancellationReason ?? null,
       decidedAt: new Date(),
     },
-  });
+    "Apenas solicitações ainda em análise podem ser canceladas.",
+  );
 
   await recordAudit({
     action: "REQUEST_CANCELLED",
@@ -499,6 +532,52 @@ function combineDateTime(date: Date, hhmm: string): Date {
   return out;
 }
 
+/**
+ * Mensagem de conflito de agenda. Se a viagem que ocupa o período nasceu deste
+ * mesmo pedido, ele acabou de ser aprovado por outra pessoa (ou por um segundo
+ * clique): avisa isso, e não "veículo ocupado".
+ */
+function scheduleConflict(
+  who: "Veículo" | "Condutor",
+  requestId: string,
+  c: { publicCode: string; requestId: string | null },
+): AppError {
+  if (c.requestId === requestId) {
+    return Errors.conflict("Esta solicitação não está mais em análise.");
+  }
+  return Errors.conflict(`${who} já tem viagem no período (${c.publicCode}).`);
+}
+
+/**
+ * Confere, com os dados da transação, se veículo e condutor continuam livres no
+ * período. Roda depois de `lockResources`, então enxerga as viagens gravadas por
+ * aprovações concorrentes que terminaram antes.
+ */
+async function assertScheduleFree(
+  db: Prisma.TransactionClient,
+  args: { requestId: string; vehicleId: string; driverId: string | null; start: Date; end: Date },
+): Promise<void> {
+  const vehicleTrips = await db.caution.findMany({
+    where: { vehicleId: args.vehicleId, status: { in: [...BLOCKING_CAUTION_STATUSES] } },
+    select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true, requestId: true },
+  });
+  for (const c of vehicleTrips) {
+    if (hasDateRangeConflict(args.start, args.end, c.plannedWithdrawalAt, c.plannedReturnAt)) {
+      throw scheduleConflict("Veículo", args.requestId, c);
+    }
+  }
+  if (!args.driverId) return;
+  const driverTrips = await db.caution.findMany({
+    where: { ...responsibleWhere(args.driverId), status: { in: [...BLOCKING_CAUTION_STATUSES] } },
+    select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true, requestId: true },
+  });
+  for (const c of driverTrips) {
+    if (hasDateRangeConflict(args.start, args.end, c.plannedWithdrawalAt, c.plannedReturnAt)) {
+      throw scheduleConflict("Condutor", args.requestId, c);
+    }
+  }
+}
+
 export interface ApproveRequestResult {
   request: VehicleRequest;
   caution: Caution;
@@ -552,13 +631,13 @@ export async function approveRequest(
       vehicleId: vehicle.id,
       status: { in: [...BLOCKING_CAUTION_STATUSES] },
     },
-    select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true },
+    select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true, requestId: true },
   });
   for (const c of overlapping) {
     if (
       hasDateRangeConflict(newPeriodStart, newPeriodEnd, c.plannedWithdrawalAt, c.plannedReturnAt)
     ) {
-      throw Errors.conflict(`Veículo já tem viagem no período (${c.publicCode}).`);
+      throw scheduleConflict("Veículo", id, c);
     }
   }
 
@@ -594,13 +673,18 @@ export async function approveRequest(
         ...responsibleWhere(driver.id),
         status: { in: [...BLOCKING_CAUTION_STATUSES] },
       },
-      select: { plannedWithdrawalAt: true, plannedReturnAt: true, publicCode: true },
+      select: {
+        plannedWithdrawalAt: true,
+        plannedReturnAt: true,
+        publicCode: true,
+        requestId: true,
+      },
     });
     for (const c of driverTrips) {
       if (
         hasDateRangeConflict(newPeriodStart, newPeriodEnd, c.plannedWithdrawalAt, c.plannedReturnAt)
       ) {
-        throw Errors.conflict(`Condutor já tem viagem no período (${c.publicCode}).`);
+        throw scheduleConflict("Condutor", id, c);
       }
     }
   }
@@ -612,6 +696,32 @@ export async function approveRequest(
     attempts++;
     try {
       result = await prisma.$transaction(async (tx) => {
+        // Uma aprovação por vez para o mesmo veículo e o mesmo condutor; a
+        // checagem de agenda refeita aqui é a que vale.
+        await lockResources(tx, [
+          `vehicle:${vehicle.id}`,
+          ...(driver ? [`person:${driver.id}`] : []),
+        ]);
+        // Só aprova se ninguém decidiu antes (duplo clique, recusa ou
+        // cancelamento ao mesmo tempo).
+        const updatedRequest = await decidePendingRequest(
+          id,
+          {
+            status: RequestStatus.APROVADA,
+            adminId: actor.user.id,
+            adminNotes: input.adminNotes ?? null,
+            decidedAt: new Date(),
+          },
+          "Esta solicitação não está mais em análise.",
+          tx,
+        );
+        await assertScheduleFree(tx, {
+          requestId: id,
+          vehicleId: vehicle.id,
+          driverId: driver?.id ?? null,
+          start: newPeriodStart,
+          end: newPeriodEnd,
+        });
         const newCaution = await tx.caution.create({
           data: {
             publicCode: generateCautionCode(toAppWallClock(new Date())),
@@ -623,15 +733,6 @@ export async function approveRequest(
             approvedByAdminId: actor.user.id,
             plannedWithdrawalAt: newPeriodStart,
             plannedReturnAt: newPeriodEnd,
-          },
-        });
-        const updatedRequest = await tx.vehicleRequest.update({
-          where: { id },
-          data: {
-            status: RequestStatus.APROVADA,
-            adminId: actor.user.id,
-            adminNotes: input.adminNotes ?? null,
-            decidedAt: new Date(),
           },
         });
         // Só um carro livre passa a "Reservado"; se ele está em uso ou em
@@ -770,16 +871,17 @@ export async function rejectRequest(
     throw Errors.conflict("Esta solicitação não está mais em análise.");
   }
 
-  const updated = await prisma.vehicleRequest.update({
-    where: { id },
-    data: {
+  const updated = await decidePendingRequest(
+    id,
+    {
       status: RequestStatus.NAO_APROVADA,
       adminId: actor.user.id,
       rejectionReason: input.rejectionReason,
       adminNotes: input.adminNotes ?? null,
       decidedAt: new Date(),
     },
-  });
+    "Esta solicitação não está mais em análise.",
+  );
 
   await recordAudit({
     action: "REQUEST_REJECTED",
@@ -835,15 +937,16 @@ export async function cancelRequestByAdmin(
     );
   }
 
-  const updated = await prisma.vehicleRequest.update({
-    where: { id },
-    data: {
+  const updated = await decidePendingRequest(
+    id,
+    {
       status: RequestStatus.CANCELADA_PELO_ADMIN,
       adminId: actor.user.id,
       adminNotes: input.cancellationReason ?? null,
       decidedAt: new Date(),
     },
-  });
+    "Apenas solicitações em análise podem ser canceladas pelo administrador.",
+  );
 
   await recordAudit({
     action: "REQUEST_CANCELLED",

@@ -5,6 +5,7 @@ vi.mock("@/server/config/env", () => ({
     SUPABASE_URL: "https://abc.supabase.co/",
     SUPABASE_SERVICE_ROLE_KEY: "sb_secret_test",
     SUPABASE_STORAGE_BUCKET: "checklist-photos",
+    UPLOAD_MAX_BYTES: 4194304,
   },
 }));
 
@@ -78,5 +79,45 @@ describe("SupabaseStorageProvider", () => {
     fetchMock.mockRejectedValue(new Error("rede"));
     const provider = new SupabaseStorageProvider();
     await expect(provider.remove("2026/11/abc.jpg")).resolves.toBeUndefined();
+  });
+
+  it("cria o bucket privado no primeiro envio e tenta de novo", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          '{"statusCode":"404","error":"Bucket not found","message":"Bucket not found"}',
+          {
+            status: 400,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"name":"checklist-photos"}', { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    const provider = new SupabaseStorageProvider();
+    const stored = await provider.put({
+      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+      mimeType: "image/jpeg",
+      originalName: "x.jpg",
+    });
+    expect(stored.fileKey).toMatch(/^\d{4}\/\d{2}\/[a-f0-9]{32}\.jpg$/);
+    const [bucketUrl, bucketInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(bucketUrl).toBe("https://abc.supabase.co/storage/v1/bucket");
+    expect(JSON.parse(String(bucketInit.body))).toMatchObject({
+      id: "checklist-photos",
+      public: false,
+      file_size_limit: 4194304,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("não insiste se o bucket não puder ser criado", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('{"error":"Bucket not found"}', { status: 400 }))
+      .mockResolvedValueOnce(new Response('{"error":"forbidden"}', { status: 403 }));
+    const provider = new SupabaseStorageProvider();
+    await expect(
+      provider.put({ buffer: Buffer.from([0xff]), mimeType: "image/jpeg", originalName: "x.jpg" }),
+    ).rejects.toThrow(/Falha no upload/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

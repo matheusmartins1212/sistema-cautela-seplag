@@ -24,16 +24,44 @@ import { getStorage } from "@/server/modules/storage/local.provider";
 
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function assertImage(mimeType: string, size: number): void {
-  if (!ALLOWED_MIME.has(mimeType)) {
+/**
+ * Confere a assinatura do arquivo: o tipo informado pelo navegador pode ser
+ * qualquer coisa, os primeiros bytes não.
+ */
+export function detectImageMime(buffer: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return "image/png";
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function assertImage(mimeType: string, buffer: Buffer): void {
+  const declared = mimeType === "image/jpg" ? "image/jpeg" : mimeType;
+  if (!ALLOWED_MIME.has(declared)) {
     throw Errors.validation("Formato de imagem inválido. Use JPG, PNG ou WebP.");
   }
-  if (size <= 0) {
+  if (buffer.byteLength <= 0) {
     throw Errors.validation("Arquivo vazio.");
   }
-  if (size > env.UPLOAD_MAX_BYTES) {
+  if (buffer.byteLength > env.UPLOAD_MAX_BYTES) {
     const mb = Math.round(env.UPLOAD_MAX_BYTES / (1024 * 1024));
     throw Errors.validation(`Arquivo excede o limite de ${mb} MB.`);
+  }
+  if (detectImageMime(buffer) !== declared) {
+    throw Errors.validation("O arquivo não é uma imagem válida. Use JPG, PNG ou WebP.");
   }
 }
 
@@ -90,7 +118,7 @@ export async function uploadPhoto(
   actor: SessionUser,
   context?: RequestContext,
 ): Promise<ChecklistPhoto> {
-  assertImage(input.mimeType, input.buffer.byteLength);
+  assertImage(input.mimeType, input.buffer);
 
   const checklist = await loadChecklistOwnedByActor(checklistId, actor);
   // Admin pode subir mesmo após envio? Por segurança/integridade, NÃO.
@@ -122,7 +150,8 @@ export async function uploadPhoto(
 
   const stored = await getStorage().put({
     buffer: input.buffer,
-    mimeType: input.mimeType,
+    // Grava o tipo conferido nos bytes, não o informado pelo navegador.
+    mimeType: detectImageMime(input.buffer) ?? input.mimeType,
     originalName: input.originalName,
   });
 

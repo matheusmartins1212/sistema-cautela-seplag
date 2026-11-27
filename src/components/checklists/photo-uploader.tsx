@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PhotoType } from "@prisma/client";
 import { Alert } from "@/components/ui/alert";
+import { prepareImageForUpload } from "@/lib/image-compress";
 
 interface PhotoMeta {
   id: string;
@@ -30,7 +31,6 @@ interface Props {
 }
 
 const ACCEPT = "image/jpeg,image/png,image/webp";
-const MAX_BYTES_DEFAULT = 8 * 1024 * 1024;
 
 export function PhotoUploader({
   checklistId,
@@ -77,12 +77,17 @@ export function PhotoUploader({
     setError(null);
     setUploading(true);
     for (const file of Array.from(files).slice(0, single ? 1 : undefined)) {
-      if (file.size > MAX_BYTES_DEFAULT) {
-        setError(`Arquivo "${file.name}" excede 8MB.`);
+      // Reduz no navegador: cabe no limite da Vercel, economiza o armazenamento
+      // e tira a localização GPS gravada pela câmera.
+      let upload: File;
+      try {
+        upload = await prepareImageForUpload(file);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Não foi possível preparar a foto.");
         continue;
       }
       const fd = new FormData();
-      fd.set("file", file);
+      fd.set("file", upload);
       fd.set("type", defaultType ?? "OUTRA");
       if (itemKey) fd.set("itemKey", itemKey);
       const res = await fetch(`/api/checklists/${checklistId}/photos`, {

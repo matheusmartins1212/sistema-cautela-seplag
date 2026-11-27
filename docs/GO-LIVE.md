@@ -51,7 +51,7 @@ modelo. O sistema **falha de propósito ao iniciar** se faltar algo obrigatório
 ### Com valores padrão (ajuste se quiser)
 
 `SESSION_TTL_SECONDS` (8h), `EMAIL_CONFIRMATION_TOKEN_EXPIRES_IN` (24h),
-`PASSWORD_RESET_TOKEN_EXPIRES_IN` (30m), `UPLOAD_MAX_BYTES` (8 MB),
+`PASSWORD_RESET_TOKEN_EXPIRES_IN` (30m), `UPLOAD_MAX_BYTES` (4 MB),
 `RATE_LIMIT_WINDOW_SECONDS` (900), `RATE_LIMIT_MAX_ATTEMPTS` (5),
 `STORAGE_DRIVER` (`local`).
 

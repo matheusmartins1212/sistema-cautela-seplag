@@ -62,17 +62,53 @@ export class SupabaseStorageProvider implements StorageProvider {
     const rand = randomBytes(16).toString("hex");
     const fileKey = `${year}/${month}/${rand}.${ext}`;
 
-    const res = await fetch(this.objectUrl(fileKey), {
-      method: "POST",
-      headers: this.headers({ "content-type": input.mimeType, "x-upsert": "false" }),
-      body: new Uint8Array(input.buffer),
-    });
+    const upload = () =>
+      fetch(this.objectUrl(fileKey), {
+        method: "POST",
+        headers: this.headers({ "content-type": input.mimeType, "x-upsert": "false" }),
+        body: new Uint8Array(input.buffer),
+      });
+    let res = await upload();
     if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`Falha no upload para o Supabase Storage (${res.status}): ${detail}`);
+      let detail = await res.text().catch(() => "");
+      // Primeiro envio de um projeto novo: cria o bucket privado e tenta de novo.
+      if (/bucket not found/i.test(detail) && (await this.createBucket())) {
+        res = await upload();
+        detail = res.ok ? "" : await res.text().catch(() => "");
+      }
+      if (!res.ok) {
+        throw new Error(`Falha no upload para o Supabase Storage (${res.status}): ${detail}`);
+      }
     }
 
     return { fileKey, mimeType: input.mimeType, size: input.buffer.byteLength };
+  }
+
+  /**
+   * Cria o bucket como PRIVADO, só com imagens e com o mesmo teto do servidor.
+   * Devolve true se o bucket passou a existir (criado agora ou por outra
+   * instância ao mesmo tempo).
+   */
+  private async createBucket(): Promise<boolean> {
+    const res = await fetch(`${this.baseUrl}/storage/v1/bucket`, {
+      method: "POST",
+      headers: this.headers({ "content-type": "application/json" }),
+      body: JSON.stringify({
+        id: this.bucket,
+        name: this.bucket,
+        public: false,
+        file_size_limit: env.UPLOAD_MAX_BYTES,
+        allowed_mime_types: ["image/jpeg", "image/png", "image/webp"],
+      }),
+    });
+    if (res.ok) {
+      logger.info("Bucket de fotos criado no Supabase Storage", { bucket: this.bucket });
+      return true;
+    }
+    const detail = await res.text().catch(() => "");
+    if (/already exists|duplicate/i.test(detail)) return true;
+    logger.error("Falha ao criar o bucket de fotos", { status: res.status });
+    return false;
   }
 
   async get(fileKey: string): Promise<{ stream: NodeJS.ReadableStream; size: number }> {

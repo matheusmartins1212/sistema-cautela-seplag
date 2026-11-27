@@ -58,7 +58,8 @@ const envSchema = z
     SUPABASE_URL: z.string().url().optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
     SUPABASE_STORAGE_BUCKET: z.string().default("checklist-photos"),
-    UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(8_388_608),
+    // Abaixo dos 4,5 MB que a Vercel aceita por requisição; o navegador já reduz a foto.
+    UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(4_194_304),
 
     RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(900),
     RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),

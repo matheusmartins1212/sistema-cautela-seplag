@@ -75,3 +75,12 @@ Solicitação, viagem, checklist, veículo e usuário, na central e na área do 
 ## Menu sem contadores (2026-11-26)
 
 A barra lateral não mostra mais contadores de pendência ao lado dos módulos. As pendências chegam pelo sino de notificações e aparecem nas próprias listas. Os nomes dos módulos ficaram maiores (15px) e mais claros sobre o azul.
+
+## Ajustes da reavaliação técnica (2026-11-27)
+
+- **Troca da própria senha** no perfil (servidor e central): exige a senha atual, recusa repetir a mesma e encerra as outras sessões. Registrada no histórico como "Trocou a própria senha pelo perfil", sem migração de banco.
+- **Fotos reduzidas no navegador** para 1280 px em JPEG antes do envio, o que também descarta o EXIF (inclusive GPS). O servidor aceita até 4 MB e confere a assinatura do arquivo (JPEG, PNG ou WebP).
+- **Decisões simultâneas.** Aprovar, recusar e cancelar só gravam se o pedido ainda estiver em análise. A aprovação trava veículo e condutor (`pg_advisory_xact_lock`) e refaz a checagem de agenda dentro da transação. Um segundo clique recebe "não está mais em análise", não erro interno.
+- **Bucket de fotos criado sozinho** no primeiro envio ao Supabase Storage (privado, só imagens, 4 MB).
+- **Next.js 15.5.29**, que corrige o alerta crítico.
+- **Plano gratuito:** backup diário criptografado e verificação de testes no GitHub Actions. Passos de configuração em `docs/PLANO-GRATUITO.md`.

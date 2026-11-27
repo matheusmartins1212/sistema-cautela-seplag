@@ -58,6 +58,9 @@ describe("catálogo da auditoria", () => {
     expect(describeAudit("PASSWORD_RESET_COMPLETED", { via: "temporary" })).toBe(
       "Trocou a senha provisória",
     );
+    expect(describeAudit("PASSWORD_RESET_COMPLETED", { via: "self" })).toBe(
+      "Trocou a própria senha pelo perfil",
+    );
   });
 
   it("tolera metadados ausentes ou estranhos", () => {

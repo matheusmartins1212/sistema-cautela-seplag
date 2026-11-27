@@ -1,0 +1,69 @@
+# Cópia de segurança diária do banco, para o plano gratuito do Supabase (que não
+# faz backup). O arquivo sai CRIPTOGRAFADO (AES-256) porque o repositório é
+# público: sem a senha, ninguém consegue abrir. Fica guardado por 30 dias como
+# artefato da execução. Como acessa o banco todo dia, também evita que o
+# Supabase pause o projeto por inatividade.
+#
+# Segredos necessários (Settings > Secrets and variables > Actions):
+#   BACKUP_DATABASE_URL  conexão do Supabase na porta 5432 (direta ou "session pooler")
+#   BACKUP_PASSPHRASE    senha longa, guardada fora do GitHub; sem ela não há restauração
+#
+# Restauração: veja docs/BACKUP.md.
+name: Backup do banco
+
+on:
+  schedule:
+    - cron: "30 6 * * *" # 03:30 em Cuiabá
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-banco
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Conferir os segredos
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$PASSPHRASE" ]; then
+            echo "::error::Configure BACKUP_DATABASE_URL e BACKUP_PASSPHRASE nos segredos do repositório."
+            exit 1
+          fi
+          if [ "${#PASSPHRASE}" -lt 20 ]; then
+            echo "::error::BACKUP_PASSPHRASE precisa ter ao menos 20 caracteres."
+            exit 1
+          fi
+
+      - name: Exportar o banco (pg_dump 17)
+        run: |
+          set -euo pipefail
+          docker run --rm -e DB_URL postgres:17 \
+            sh -c 'pg_dump "$DB_URL" --format=custom --compress=9 --no-owner --no-privileges --schema=public' \
+            > banco.dump
+          test -s banco.dump
+          echo "Tamanho do dump: $(du -h banco.dump | cut -f1)"
+
+      - name: Criptografar
+        run: |
+          set -euo pipefail
+          NOME="cautela-$(date -u +%Y-%m-%d).dump.enc"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+            -pass env:PASSPHRASE -in banco.dump -out "$NOME"
+          shred -u banco.dump
+          echo "ARQUIVO=$NOME" >> "$GITHUB_ENV"
+
+      - name: Guardar por 30 dias
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARQUIVO }}
+          path: ${{ env.ARQUIVO }}
+          retention-days: 30
+          if-no-files-found: error

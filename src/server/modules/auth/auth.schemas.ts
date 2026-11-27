@@ -98,5 +98,17 @@ export const changeTemporaryPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** Troca da própria senha, a partir do perfil (exige a senha atual). */
+export const changeOwnPasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Informe a senha atual.").max(256),
+    password: strongPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem.",
+    path: ["confirmPassword"],
+  });
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

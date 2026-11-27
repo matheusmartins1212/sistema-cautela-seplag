@@ -8,6 +8,8 @@ vi.mock("@/server/db/prisma", () => {
       findUnique: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       count: vi.fn(),
     },
     vehicle: {
@@ -30,6 +32,7 @@ vi.mock("@/server/db/prisma", () => {
     notification: {
       create: vi.fn(),
     },
+    $queryRaw: vi.fn(async () => [{ ok: 1 }]),
     $transaction: vi.fn(async (arg: unknown) =>
       typeof arg === "function"
         ? (arg as (tx: unknown) => unknown)(prisma)
@@ -47,6 +50,10 @@ vi.mock("@/server/modules/notifications/notifications.service", () => ({
 }));
 
 import { prisma } from "@/server/db/prisma";
+
+beforeEach(() => {
+  (prisma.vehicleRequest.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 1 });
+});
 import { recordAudit } from "@/server/lib/audit";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
 import { sendEmailAfterResponse } from "@/server/modules/email/email.service";
@@ -318,7 +325,7 @@ describe("cancelMyRequest", () => {
 
   it("cancela quando ainda PENDENTE_ANALISE", async () => {
     (prisma.vehicleRequest.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(baseRequest);
-    (prisma.vehicleRequest.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (prisma.vehicleRequest.findUniqueOrThrow as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...baseRequest,
       status: "CANCELADA_PELO_USUARIO",
     });
@@ -344,7 +351,7 @@ describe("approveRequest", () => {
       publicCode: "CTL-2026-06-15-BBBBBBBB",
       status: "AGUARDANDO_RETIRADA",
     });
-    (prisma.vehicleRequest.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (prisma.vehicleRequest.findUniqueOrThrow as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...baseRequest,
       status: "APROVADA",
     });
@@ -564,7 +571,7 @@ describe("rejectRequest", () => {
       ...baseRequest,
       user: baseUser,
     });
-    (prisma.vehicleRequest.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (prisma.vehicleRequest.findUniqueOrThrow as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...baseRequest,
       status: "NAO_APROVADA",
       rejectionReason: "Sem motorista disponível",
@@ -594,5 +601,102 @@ describe("rejectRequest", () => {
     await expect(
       rejectRequest("r1", { rejectionReason: "x" }, baseAdminActor),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});
+
+describe("decisões simultâneas", () => {
+  beforeEach(() => {
+    (prisma.vehicleRequest.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseRequest,
+      user: baseUser,
+    });
+    (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseVehicle);
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseDriver);
+    (prisma.caution.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caution.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "c1",
+      publicCode: "CTL-2026-06-15-BBBBBBBB",
+      status: "AGUARDANDO_RETIRADA",
+    });
+    (prisma.vehicleRequest.findUniqueOrThrow as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseRequest,
+      status: "APROVADA",
+    });
+  });
+
+  it("aprovação só grava se o pedido ainda estiver em análise", async () => {
+    await approveRequest("r1", { vehicleId: "v1", driverId: "d1" }, baseAdminActor);
+    expect(
+      (prisma.vehicleRequest.updateMany as ReturnType<typeof vi.fn>).mock.calls[0]![0],
+    ).toMatchObject({ where: { id: "r1", status: "PENDENTE_ANALISE" } });
+  });
+
+  it("segundo clique em aprovar recebe conflito e não cria outra viagem", async () => {
+    (prisma.vehicleRequest.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+    await expect(
+      approveRequest("r1", { vehicleId: "v1", driverId: "d1" }, baseAdminActor),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(prisma.caution.create).not.toHaveBeenCalled();
+  });
+
+  it("trava veículo e condutor antes de rechecar a agenda", async () => {
+    await approveRequest("r1", { vehicleId: "v1", driverId: "d1" }, baseAdminActor);
+    const locks = (prisma.$queryRaw as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
+    expect(locks).toEqual([`person:${baseDriver.id}`, `vehicle:${baseVehicle.id}`]);
+  });
+
+  it("viagem gravada por outra aprovação no meio do caminho bloqueia esta", async () => {
+    // Fora da transação o veículo parecia livre; dentro dela, já não está.
+    (prisma.caution.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([
+        {
+          plannedWithdrawalAt: new Date("2026-06-15T07:00:00Z"),
+          plannedReturnAt: new Date("2026-06-15T18:00:00Z"),
+          publicCode: "CTL-CONCORRENTE",
+        },
+      ]);
+    await expect(
+      approveRequest("r1", { vehicleId: "v1", driverId: "d1" }, baseAdminActor),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("CTL-CONCORRENTE"),
+    });
+    expect(prisma.caution.create).not.toHaveBeenCalled();
+  });
+
+  it("cancelar e recusar não sobrescrevem uma decisão já tomada", async () => {
+    (prisma.vehicleRequest.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(baseRequest);
+    (prisma.vehicleRequest.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+    await expect(cancelMyRequest("r1", {}, baseActor)).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      rejectRequest("r1", { rejectionReason: "Sem veículo" }, baseAdminActor),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});
+
+describe("aprovação repetida do mesmo pedido", () => {
+  it("se a viagem que ocupa o período é deste pedido, avisa que ele já foi decidido", async () => {
+    (prisma.vehicleRequest.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...baseRequest,
+      user: baseUser,
+    });
+    (prisma.vehicle.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseVehicle);
+    (prisma.user.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(baseDriver);
+    (prisma.caution.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        plannedWithdrawalAt: new Date("2026-06-15T07:00:00Z"),
+        plannedReturnAt: new Date("2026-06-15T18:00:00Z"),
+        publicCode: "CTL-DESTE-PEDIDO",
+        requestId: "r1",
+      },
+    ]);
+    await expect(
+      approveRequest("r1", { vehicleId: "v1", driverId: "d1" }, baseAdminActor),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Esta solicitação não está mais em análise.",
+    });
   });
 });

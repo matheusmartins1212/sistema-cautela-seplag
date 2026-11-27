@@ -219,7 +219,9 @@ export function describeAudit(action: AuditAction, rawMetadata: unknown): string
     case "PASSWORD_RESET_REQUESTED":
       return m.channel === "central" ? "Pedido feito à central" : "Link pedido por e-mail";
     case "PASSWORD_RESET_COMPLETED":
-      return m.via === "temporary" ? "Trocou a senha provisória" : "";
+      if (m.via === "temporary") return "Trocou a senha provisória";
+      if (m.via === "self") return "Trocou a própria senha pelo perfil";
+      return "";
     case "PASSWORD_TEMPORARY_SET":
       return m.requested ? "A pedido da pessoa" : "";
     case "REGISTER":

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/db/prisma", () => {
   const prisma = {
     user: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    session: { updateMany: vi.fn() },
     $transaction: vi.fn(),
   };
   return { prisma };
@@ -29,7 +30,11 @@ import { prisma } from "@/server/db/prisma";
 import { getCurrentSession, revokeAllSessions } from "@/server/modules/auth/session";
 import { recordAudit } from "@/server/lib/audit";
 import { createNotification } from "@/server/modules/notifications/notifications.service";
-import { changeTemporaryPassword, requestPasswordResetFromCentral } from "./auth.service";
+import {
+  changeOwnPassword,
+  changeTemporaryPassword,
+  requestPasswordResetFromCentral,
+} from "./auth.service";
 import { requireUser } from "./guards";
 import { setTemporaryPassword } from "@/server/modules/users/user.service";
 
@@ -159,5 +164,47 @@ describe("troca obrigatória", () => {
     await expect(changeTemporaryPassword("u1", "Minha#Nova2026")).rejects.toMatchObject({
       code: "CONFLICT",
     });
+  });
+});
+
+describe("troca da própria senha pelo perfil", () => {
+  it("confere a senha atual, grava a nova e derruba só as outras sessões", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(user as never);
+    await changeOwnPassword("u1", "sess-atual", "Antiga#Senha123", "Nova#Senha2026x");
+    expect(vi.mocked(prisma.user.update).mock.calls[0]![0]).toMatchObject({
+      where: { id: "u1" },
+      data: { passwordHash: "HASH(Nova#Senha2026x)", mustChangePassword: false },
+    });
+    expect(vi.mocked(prisma.session.updateMany).mock.calls[0]![0]).toMatchObject({
+      where: { userId: "u1", revokedAt: null, id: { not: "sess-atual" } },
+    });
+    expect(vi.mocked(recordAudit).mock.calls[0]![0]).toMatchObject({
+      action: "PASSWORD_RESET_COMPLETED",
+      metadata: { via: "self" },
+    });
+  });
+
+  it("recusa senha atual errada sem gravar nada", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(user as never);
+    await expect(
+      changeOwnPassword("u1", "s", "Errada#Senha123", "Nova#Senha2026x"),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.session.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("recusa repetir a senha atual", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(user as never);
+    await expect(
+      changeOwnPassword("u1", "s", "Antiga#Senha123", "Antiga#Senha123"),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("conta inativa não troca a senha", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...user, status: "BLOCKED" } as never);
+    await expect(
+      changeOwnPassword("u1", "s", "Antiga#Senha123", "Nova#Senha2026x"),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });
